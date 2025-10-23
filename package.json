@@ -1,0 +1,13 @@
+{
+  "name": "group-ticketing-module",
+  "version": "1.0.0",
+  "description": "Group Ticketing Module",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "AI Digital System Team",
+  "license": "MIT"
+}
