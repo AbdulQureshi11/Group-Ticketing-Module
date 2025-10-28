@@ -22,6 +22,6 @@ router.post('/bookings/:id', validatePassengerAddition, requireAgencyAccess('id'
  * Accessible by authenticated users within their agency
  * Agency access is checked via the associated booking
  */
-router.patch('/:id', validatePassengerUpdate, updatePassenger);
+router.patch('/:id', validatePassengerUpdate, requireAgencyAccess('id', 'passenger'), updatePassenger);
 
 export default router;

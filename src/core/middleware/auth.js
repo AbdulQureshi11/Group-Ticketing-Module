@@ -255,6 +255,42 @@ export const requireAgencyAccess = (idParam = 'id', resourceType = 'agency') => 
           }
           break;
 
+        case 'passenger':
+          // For passengers, check agency access via associated booking
+          const { BookingPassenger } = await import('../models/index.js');
+          const passenger = await BookingPassenger.findOne({
+            where: { id: req.params[idParam] },
+            attributes: ['bookingId']
+          });
+
+          if (!passenger) {
+            return res.status(404).json({
+              success: false,
+              message: 'Passenger not found'
+            });
+          }
+
+          // Now check if the associated booking belongs to user's agency
+          const bookingForPassenger = await BookingRequest.findOne({
+            where: { id: passenger.bookingId },
+            attributes: ['requestingAgencyId']
+          });
+
+          if (!bookingForPassenger) {
+            return res.status(404).json({
+              success: false,
+              message: 'Associated booking not found'
+            });
+          }
+
+          if (bookingForPassenger.requestingAgencyId !== userAgencyId) {
+            return res.status(403).json({
+              success: false,
+              message: 'Access denied: Can only access passengers from your own agency bookings'
+            });
+          }
+          break;
+
         default:
           return res.status(400).json({
             success: false,
