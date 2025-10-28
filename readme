@@ -1,0 +1,4 @@
+create database in phpmyadmin.
+remove that database in config.json and server.json
+run this npx sequelize-cli db:migrate
+check phpmyadmin.
