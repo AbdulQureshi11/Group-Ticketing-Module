@@ -67,13 +67,20 @@ describe('End-to-End Workflows', () => {
 
   it('should complete full booking workflow', async () => {
     // Step 1: Create a flight group (admin only)
+    // Generate future dates for the test
+    const now = new Date();
+    const departureDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    departureDate.setUTCHours(10, 0, 0, 0); // Set to 10:00:00 UTC
+    const returnDate = new Date(now.getTime() + 35 * 24 * 60 * 60 * 1000); // 35 days from now
+    returnDate.setUTCHours(15, 0, 0, 0); // Set to 15:00:00 UTC
+
     const groupData = {
       title: 'E2E Test Group',
       description: 'End-to-end test flight group',
       origin: 'NYC',
       destination: 'LAX',
-      departureDate: '2024-12-15T10:00:00Z',
-      returnDate: '2024-12-20T15:00:00Z',
+      departureDate: departureDate.toISOString(),
+      returnDate: returnDate.toISOString(),
       totalSeats: 50,
       basePrice: 600,
       currency: 'USD'

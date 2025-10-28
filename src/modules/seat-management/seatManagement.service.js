@@ -189,56 +189,6 @@ export class SeatManagementService {
   }
 
   /**
-   * Process expired holds (background job)
-   * Releases seats from bookings that have expired
-   */
-  static async processExpiredHolds() {
-    const transaction = await sequelize.transaction();
-    
-    try {
-      // Find expired bookings
-      const expiredBookings = await BookingRequest.findAll({
-        where: {
-          status: 'REQUESTED',
-          holdExpiresAt: {
-            [Op.lt]: new Date()
-          }
-        },
-        transaction
-      });
-
-      console.log(`Processing ${expiredBookings.length} expired holds`);
-
-      for (const booking of expiredBookings) {
-        // Release held seats
-        const passengers = {
-          adults: booking.paxAdults,
-          children: booking.paxChildren,
-          infants: booking.paxInfants
-        };
-
-        await this.releaseHeldSeats(booking.flightGroupId, passengers, transaction);
-
-        // Update booking status
-        await booking.update({
-          status: 'EXPIRED'
-        }, { transaction });
-      }
-
-      await transaction.commit();
-      return {
-        processed: expiredBookings.length,
-        message: `Processed ${expiredBookings.length} expired holds`
-      };
-
-    } catch (error) {
-      await transaction.rollback();
-      console.error('Process expired holds error:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Get seat utilization statistics for a flight group
    * @param {string} flightGroupId - Flight group ID
    * @returns {Object} Utilization statistics

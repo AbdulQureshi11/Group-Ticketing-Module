@@ -197,6 +197,11 @@ export class NotificationService {
       if (['APPROVED', 'REJECTED', 'ISSUED'].includes(newStatus) && user.phone) {
         smsResult = await this.sendSMS({
           to: user.phone,
+          message: this.generateSMSContent('booking-status-sms', {
+            bookingId: booking.id,
+            status: newStatus,
+            pnr: booking.pnr
+          }),
           template: 'booking-status-sms',
           data: {
             bookingId: booking.id,
@@ -254,14 +259,17 @@ export class NotificationService {
       // Send SMS reminder
       let smsResult = null;
       if (user.phone) {
+        const smsData = {
+          bookingId: booking.id,
+          paymentDeadline: paymentDeadline.split('T')[0], // Date only
+          amount: emailData.amount,
+          currency: emailData.currency
+        };
         smsResult = await this.sendSMS({
           to: user.phone,
+          message: this.generateSMSContent('payment-reminder-sms', smsData),
           template: 'payment-reminder-sms',
-          data: {
-            bookingId: booking.id,
-            paymentDeadline: paymentDeadline.split('T')[0], // Date only
-            amount: emailData.amount
-          }
+          data: smsData
         });
       }
 

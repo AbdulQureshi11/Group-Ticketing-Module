@@ -24,12 +24,23 @@ const AgencySettings = sequelize.define('AgencySettings', {
     type: DataTypes.INTEGER,
     allowNull: false,
     defaultValue: 24,
+    validate: {
+      isInt: true,
+      min: 0,
+      max: 168
+    },
     field: 'default_hold_hours'
   },
   defaultCurrency: {
     type: DataTypes.CHAR(3),
     allowNull: false,
     defaultValue: 'PKR',
+    validate: {
+      is: /^[A-Z]{3}$/
+    },
+    set(value) {
+      this.setDataValue('defaultCurrency', value && String(value).toUpperCase());
+    },
     field: 'default_currency'
   },
   notifyEmail: {

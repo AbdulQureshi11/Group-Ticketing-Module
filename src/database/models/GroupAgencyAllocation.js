@@ -26,13 +26,19 @@ const GroupAgencyAllocation = sequelize.define('GroupAgencyAllocation', {
   reservedSeats: {
     type: DataTypes.INTEGER,
     allowNull: false,
+    validate: {
+      isInt: true,
+      min: 0
+    },
     field: 'reserved_seats'
   }
 }, {
   timestamps: true,
   indexes: [
     {
-      fields: ['flight_group_id', 'agency_id', 'pax_type']
+      unique: true,
+      fields: ['flight_group_id', 'agency_id', 'pax_type'],
+      name: 'uk_agency_allocation'
     }
   ]
 });

@@ -36,7 +36,7 @@ app.use((req, res, next) => {
 testConnection();
 
 app.use(express.json({ limit: '10mb' })); // Limit payload size
-app.use(morgan ? morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev') : (req, res, next) => next());
+app.use(process.env.NODE_ENV !== 'test' ? morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev') : (req, res, next) => next());
 
 // Rate limiting
 app.use(expressRateLimiter);

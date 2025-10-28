@@ -7,16 +7,18 @@ import jwt from 'jsonwebtoken';
 
 describe('Background Jobs API', () => {
   let adminToken;
+  let testAgency;
+  let adminUser;
 
   beforeAll(async () => {
     // Create admin user
-    const testAgency = await sequelize.models.Agency.create({
+    testAgency = await sequelize.models.Agency.create({
       code: 'JOB001',
       name: 'Jobs Test Agency',
       contactEmail: 'jobs@example.com',
     });
 
-    const adminUser = await User.create({
+    adminUser = await User.create({
       username: 'jobadmin',
       password: await bcrypt.hash('jobpass123', 10),
       email: 'jobadmin@example.com',
@@ -40,8 +42,8 @@ describe('Background Jobs API', () => {
 
   afterAll(async () => {
     // Cleanup
-    await User.destroy({ where: {} });
-    await sequelize.models.Agency.destroy({ where: {} });
+    await User.destroy({ where: { agencyId: testAgency.id } });
+    await sequelize.models.Agency.destroy({ where: { id: testAgency.id } });
   });
 
   describe('GET /jobs/stats', () => {
@@ -124,7 +126,7 @@ describe('Background Jobs API', () => {
   describe('POST /jobs/notification/send', () => {
     it('should queue notification job', async () => {
       const notificationData = {
-        userId: 1,
+        userId: adminUser.id,
         type: 'BOOKING_UPDATE',
         title: 'Booking Updated',
         message: 'Your booking has been updated successfully'

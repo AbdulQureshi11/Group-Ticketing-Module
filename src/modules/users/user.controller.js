@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { User } from '../../database/index.js';
+import { ROLES } from '../../core/constants/roles.js';
+import { Op } from 'sequelize';
 
 /**
  * POST /users
@@ -20,25 +22,28 @@ export const createUser = async (req, res) => {
     }
 
     // Validate role
-    if (role && !['Admin', 'Manager', 'Agent'].includes(role)) {
+    if (role && !Object.values(ROLES).includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be Admin, Manager, or Agent'
+        message: `Role must be one of: ${Object.values(ROLES).join(', ')}`
       });
     }
 
     // Check if user already exists
     const existingUser = await User.findOne({
       where: {
-        username: username,
-        agencyId: agencyId
+        agencyId: agencyId,
+        [Op.or]: [
+          { username: username },
+          { email: email }
+        ]
       }
     });
 
     if (existingUser) {
       return res.status(409).json({
         success: false,
-        message: 'User with this username already exists in your agency'
+        message: 'User with this username or email already exists in your agency'
       });
     }
 
@@ -51,7 +56,7 @@ export const createUser = async (req, res) => {
       email,
       passwordHash: hashedPassword,
       name,
-      role: role || 'Agent',
+      role: role || ROLES.AGENT,
       phone,
       agencyId,
       isActive: true
@@ -123,10 +128,10 @@ export const updateUser = async (req, res) => {
     }
 
     // Validate role if being updated
-    if (updates.role && !['Admin', 'Manager', 'Agent'].includes(updates.role)) {
+    if (updates.role && !Object.values(ROLES).includes(updates.role)) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be Admin, Manager, or Agent'
+        message: `Role must be one of: ${Object.values(ROLES).join(', ')}`
       });
     }
 

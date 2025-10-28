@@ -3,12 +3,25 @@ import rateLimit from 'express-rate-limit';
 // Create a rate limiter middleware
 const createRateLimiter = () => {
   const requestCounts = new Map();
+  const windowMs = 15 * 60 * 1000; // 15 minutes
+  const maxRequests = process.env.NODE_ENV === 'production' ? 100 : 1000;
+
+  // Cleanup function to remove expired entries
+  const cleanup = () => {
+    const now = Date.now();
+    for (const [key, data] of requestCounts) {
+      if (now > data.resetTime) {
+        requestCounts.delete(key);
+      }
+    }
+  };
+
+  // Run cleanup every windowMs
+  const cleanupInterval = setInterval(cleanup, windowMs);
 
   return (req, res, next) => {
     const key = req.ip;
     const now = Date.now();
-    const windowMs = 15 * 60 * 1000; // 15 minutes
-    const maxRequests = process.env.NODE_ENV === 'production' ? 100 : 1000; // Stricter in production
 
     if (!requestCounts.has(key)) {
       requestCounts.set(key, { count: 1, resetTime: now + windowMs });

@@ -1,11 +1,11 @@
+// Set test environment before any imports
+process.env.NODE_ENV = 'test';
+
 import { sequelize } from '../src/config/database.js';
 import dotenv from 'dotenv';
 
 // Load test environment variables
 dotenv.config({ path: '.env.test' });
-
-// Set test environment
-process.env.NODE_ENV = 'test';
 
 // Global test setup
 beforeAll(async () => {
@@ -15,6 +15,7 @@ beforeAll(async () => {
     console.log('✅ Test database connection established');
   } catch (error) {
     console.error('❌ Test database connection failed:', error);
+    throw error;
   }
 });
 

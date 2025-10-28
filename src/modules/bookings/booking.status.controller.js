@@ -3,6 +3,7 @@ import { StatusMachineService } from '../status-machine/statusMachine.service.js
 import { SeatManagementService } from '../seat-management/seatManagement.service.js';
 import { PNRManagementService } from '../pnr-management/pnrManagement.service.js';
 import { AuditService } from '../../services/audit.service.js';
+import { ROLES } from '../../core/constants/roles.js';
 import { v4 as uuidv4 } from 'uuid';
 import { sequelize } from '../../config/database.js';
 
@@ -55,6 +56,9 @@ export const approveBooking = async (req, res) => {
       });
     }
 
+    // Capture previous status for audit logging
+    const previousStatus = booking.status;
+
     // Update booking with approval info
     await booking.update({
       status: 'APPROVED',
@@ -66,7 +70,7 @@ export const approveBooking = async (req, res) => {
     await AuditService.logBookingChange({
       bookingId: booking.id,
       action: 'APPROVE_BOOKING',
-      previousStatus: booking.status,
+      previousStatus,
       newStatus: 'APPROVED',
       userId: req.user.id,
       details: {
@@ -84,7 +88,7 @@ export const approveBooking = async (req, res) => {
       message: 'Booking approved successfully',
       data: {
         id: booking.id,
-        status: 'APPROVED',
+        status: booking.status,
         approvalUserId: booking.approvalUserId,
         approvalAt: booking.approvalAt
       }
@@ -166,6 +170,9 @@ export const rejectBooking = async (req, res) => {
       );
     }
 
+    // Capture previous status for audit logging
+    const previousStatus = booking.status;
+
     // Update booking with rejection info
     await booking.update({
       status: 'REJECTED',
@@ -178,7 +185,7 @@ export const rejectBooking = async (req, res) => {
     await AuditService.logBookingChange({
       bookingId: booking.id,
       action: 'REJECT_BOOKING',
-      previousStatus: 'REQUESTED',
+      previousStatus,
       newStatus: 'REJECTED',
       userId: req.user.id,
       details: {
@@ -266,32 +273,47 @@ export const uploadPaymentProof = async (req, res) => {
       });
     }
 
-    // Create payment proof record
-    const paymentProof = await PaymentProof.create({
-      id: uuidv4(),
-      bookingId: booking.id,
-      fileUrl: fileUrl.trim(),
-      bankName: bankName?.trim() || null,
-      amount: amount ? parseFloat(amount) : null,
-      currency: currency?.trim() || null,
-      referenceNo: referenceNo?.trim() || null,
-      uploadedByUserId: userId
-    }, { transaction });
+    // Perform payment proof upload within a transaction to prevent race conditions
+    const transaction = await sequelize.transaction();
+    let statusTransitioned = false;
+    
+    try {
+      // Create payment proof record
+      const paymentProof = await PaymentProof.create({
+        id: uuidv4(),
+        bookingId: booking.id,
+        fileUrl: fileUrl.trim(),
+        bankName: bankName?.trim() || null,
+        amount: amount ? parseFloat(amount) : null,
+        currency: currency?.trim() || null,
+        referenceNo: referenceNo?.trim() || null,
+        uploadedByUserId: userId
+      }, { transaction });
 
-    // Update booking status if appropriate
-    if (booking.status === 'APPROVED') {
-      // Validate status transition for consistency
-      if (!validStatusTransitions[booking.status].includes('PAYMENT_PENDING')) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: `Cannot transition from '${booking.status}' to 'PAYMENT_PENDING'`
-        });
+      // Update booking status if appropriate
+      if (booking.status === 'APPROVED') {
+        // Validate status transition for consistency
+        if (!validStatusTransitions[booking.status].includes('PAYMENT_PENDING')) {
+          await transaction.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Cannot transition from '${booking.status}' to 'PAYMENT_PENDING'`
+          });
+        }
+        await booking.update({ status: 'PAYMENT_PENDING' }, { transaction });
+        statusTransitioned = true;
       }
-      await booking.update({ status: 'PAYMENT_PENDING' }, { transaction });
-    }
 
-    await transaction.commit();
+      await transaction.commit();
+
+    } catch (error) {
+      await transaction.rollback();
+      console.error('Upload payment proof error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
 
     // Log the payment proof upload to audit
     await AuditService.logUserAction({
@@ -312,7 +334,7 @@ export const uploadPaymentProof = async (req, res) => {
     });
 
     // Log booking status change if transitioned
-    if (booking.status === 'APPROVED') {
+    if (statusTransitioned) {
       await AuditService.logBookingChange({
         bookingId: booking.id,
         action: 'PAYMENT_PROOF_UPLOADED',
@@ -514,9 +536,12 @@ export const issueBooking = async (req, res) => {
       attributes: ['id', 'firstName', 'lastName', 'pnr', 'ticketNo']
     });
 
-    // Format passenger data for response with realistic seat assignment
+    // Format passenger data for response with seat assignment
+    // TODO: Implement proper seat assignment through SeatManagementService
+    // Current implementation uses placeholder seat numbers and doesn't check availability
     const formattedPassengers = updatedPassengers.map((passenger, index) => {
-      // Generate realistic seat numbers (e.g., 1A, 1B, 2A, 2B, etc.)
+      // Placeholder: Generate simple seat numbers (e.g., 1A, 1B, 2A, 2B, etc.)
+      // This should be replaced with actual seat assignment logic
       const row = Math.floor(index / 4) + 1; // 4 seats per row
       const seatLetter = String.fromCharCode(65 + (index % 4)); // A, B, C, D
       const seatNumber = `${row}${seatLetter}`;
@@ -582,7 +607,7 @@ export const cancelBooking = async (req, res) => {
     }
 
     // Check agency access
-    if (userRole !== 'Admin' && booking.requestingAgencyId !== userAgencyCode) {
+    if (userRole !== ROLES.ADMIN && booking.requestingAgencyId !== userAgencyCode) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
@@ -598,6 +623,7 @@ export const cancelBooking = async (req, res) => {
     }
 
     // Perform cancellation within a transaction to prevent race conditions
+    const previousStatus = booking.status;
     const transaction = await sequelize.transaction();
     
     try {
@@ -618,6 +644,21 @@ export const cancelBooking = async (req, res) => {
 
       // Commit transaction
       await transaction.commit();
+
+      // Log the booking cancellation to audit
+      await AuditService.logBookingChange({
+        bookingId: booking.id,
+        action: 'CANCEL_BOOKING',
+        previousStatus,
+        newStatus: 'CANCELLED',
+        userId: req.user.id,
+        details: {
+          flightGroupId: booking.flightGroupId,
+          seatsReturned: booking.status !== 'ISSUED' ? booking.seatsBooked : 0
+        },
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent')
+      });
 
     } catch (error) {
       // Rollback on any error

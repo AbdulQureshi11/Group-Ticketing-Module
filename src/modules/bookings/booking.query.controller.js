@@ -1,5 +1,6 @@
 import { BookingRequest, FlightGroup, BookingPassenger, Agency, GroupSeatBucket, PaymentProof, User } from '../../database/index.js';
 import { Op } from 'sequelize';
+import { ROLES } from '../../core/constants/roles.js';
 
 /**
  * GET /bookings
@@ -30,7 +31,7 @@ export const getBookings = async (req, res) => {
     const whereClause = {};
 
     // Filter by user's agency if not admin
-    if (userRole !== 'ADMIN') {
+    if (userRole !== ROLES.ADMIN) {
       whereClause.requestingAgencyId = userAgencyId;
     } else if (agencyId) {
       whereClause.requestingAgencyId = agencyId;
@@ -45,14 +46,38 @@ export const getBookings = async (req, res) => {
       whereClause.flightGroupId = flightGroupId;
     }
 
-    // Date range filter
-    if (dateFrom || dateTo) {
-      whereClause.createdAt = {};
-      if (dateFrom) {
-        whereClause.createdAt[Op.gte] = new Date(dateFrom);
+    // Validate date parameters
+    let validDateFrom = null;
+    let validDateTo = null;
+    if (dateFrom) {
+      const parsed = new Date(dateFrom);
+      if (isNaN(parsed.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid dateFrom format'
+        });
       }
-      if (dateTo) {
-        whereClause.createdAt[Op.lte] = new Date(dateTo);
+      validDateFrom = parsed;
+    }
+    if (dateTo) {
+      const parsed = new Date(dateTo);
+      if (isNaN(parsed.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid dateTo format'
+        });
+      }
+      validDateTo = parsed;
+    }
+
+    // Date range filter
+    if (validDateFrom || validDateTo) {
+      whereClause.createdAt = {};
+      if (validDateFrom) {
+        whereClause.createdAt[Op.gte] = validDateFrom;
+      }
+      if (validDateTo) {
+        whereClause.createdAt[Op.lte] = validDateTo;
       }
     }
 
@@ -202,7 +227,7 @@ export const getBookingById = async (req, res) => {
     }
 
     // Check agency access
-    if (userRole !== 'ADMIN' && booking.requestingAgencyId !== userAgencyId) {
+    if (userRole !== ROLES.ADMIN && booking.requestingAgencyId !== userAgencyId) {
       return res.status(403).json({
         success: false,
         message: 'Access denied: Can only access your own agency bookings'

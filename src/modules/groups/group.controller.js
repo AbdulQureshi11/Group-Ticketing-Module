@@ -743,13 +743,24 @@ export const createAllocation = async (req, res) => {
     }
 
     // Create the allocation
-    const allocation = await GroupAgencyAllocation.create({
-      groupId: group.id,
-      agencyCode: userAgencyCode,
-      seatsAllocated: seats,
-      notes: notes || null,
-      status: 'active'
-    });
+    let allocation;
+    try {
+      allocation = await GroupAgencyAllocation.create({
+        groupId: group.id,
+        agencyCode: userAgencyCode,
+        seatsAllocated: seats,
+        notes: notes || null,
+        status: 'active'
+      });
+    } catch (error) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        return res.status(409).json({
+          success: false,
+          message: 'Allocation already exists for this group and agency'
+        });
+      }
+      throw error;
+    }
 
     // Update the group's allocated seats count
     await group.update({

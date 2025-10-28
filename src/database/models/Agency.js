@@ -20,7 +20,13 @@ const Agency = sequelize.define('Agency', {
   parentAgencyId: {
     type: DataTypes.CHAR(36),
     allowNull: true,
-    field: 'parent_agency_id'
+    field: 'parent_agency_id',
+    references: {
+      model: 'Agency',
+      key: 'id'
+    },
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
   },
   status: {
     type: DataTypes.ENUM('ACTIVE', 'SUSPENDED'),
