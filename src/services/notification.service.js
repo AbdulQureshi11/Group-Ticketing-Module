@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import winston from 'winston';
+import { v4 as uuidv4 } from 'uuid';
 
 // Configure logger for notifications
 const notificationLogger = winston.createLogger({
@@ -132,7 +133,7 @@ export class NotificationService {
       // Simulate SMS sending
       const smsResult = {
         success: true,
-        messageId: `SMS_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        messageId: `SMS_${uuidv4()}`,
         to,
         message: smsContent,
         sentAt: new Date().toISOString()
