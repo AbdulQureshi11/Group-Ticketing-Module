@@ -1,4 +1,13 @@
 import winston from 'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
+import fs from 'fs';
+import path from 'path';
+
+// Ensure logs directory exists
+const logsDir = path.join(process.cwd(), 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 // Create a logger instance
 const logger = winston.createLogger({
@@ -10,10 +19,21 @@ const logger = winston.createLogger({
   ),
   defaultMeta: { service: 'flight-group-api' },
   transports: [
-    // Write all logs with importance level of `error` or less to `error.log`
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    // Write all logs with importance level of `info` or less to `combined.log`
-    new winston.transports.File({ filename: 'logs/combined.log' }),
+    // Write all logs with importance level of `error` or less to rotated error logs
+    new DailyRotateFile({
+      filename: path.join(logsDir, 'error-%DATE%.log'),
+      datePattern: 'YYYY-MM-DD',
+      level: 'error',
+      maxSize: '20m',
+      maxFiles: '14d'
+    }),
+    // Write all logs with importance level of `info` or less to rotated combined logs
+    new DailyRotateFile({
+      filename: path.join(logsDir, 'combined-%DATE%.log'),
+      datePattern: 'YYYY-MM-DD',
+      maxSize: '20m',
+      maxFiles: '14d'
+    }),
   ],
 });
 

@@ -17,17 +17,26 @@ const notificationLogger = winston.createLogger({
 // Email transporter configuration
 const createEmailTransporter = () => {
   // Determine if TLS certificate verification should be disabled
-  // Only disable in development or if explicitly set to false/0
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  // Only disable if explicitly opted into insecure mode via SMTP_ALLOW_INSECURE
+  const smtpAllowInsecure = process.env.SMTP_ALLOW_INSECURE;
   const rejectUnauthorizedEnv = process.env.SMTP_REJECT_UNAUTHORIZED;
   
-  // Parse environment variable - treat 'false' and '0' as false, everything else as true
-  let rejectUnauthorized = true; // Default to secure
+  // Default to secure TLS verification
+  let rejectUnauthorized = true;
+  
+  // Allow explicit opt-out via SMTP_ALLOW_INSECURE for testing/local development
+  if (smtpAllowInsecure && ['true', '1'].includes(smtpAllowInsecure.toLowerCase())) {
+    rejectUnauthorized = false;
+  }
+  
+  // Allow override via SMTP_REJECT_UNAUTHORIZED (backwards compatibility)
   if (rejectUnauthorizedEnv !== undefined) {
     rejectUnauthorized = !['false', '0'].includes(rejectUnauthorizedEnv.toLowerCase());
-  } else if (isDevelopment) {
-    // In development, allow disabling verification for local testing
-    rejectUnauthorized = false;
+  }
+  
+  // Security guard: Never allow insecure TLS in production
+  if (process.env.NODE_ENV === 'production' && rejectUnauthorized === false) {
+    throw new Error('Insecure TLS configuration not allowed in production. Remove SMTP_ALLOW_INSECURE or set SMTP_REJECT_UNAUTHORIZED to true.');
   }
 
   return nodemailer.createTransporter({

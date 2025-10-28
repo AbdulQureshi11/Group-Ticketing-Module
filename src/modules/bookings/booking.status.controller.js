@@ -405,7 +405,7 @@ export const markBookingPaid = async (req, res) => {
     }
 
     // Convert held seats to issued seats
-    await SeatManagementService.convertHeldToIssued(
+    await SeatManagementService.issueSeats(
       booking.flightGroupId,
       {
         adults: booking.paxAdults,

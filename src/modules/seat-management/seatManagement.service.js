@@ -392,35 +392,6 @@ export class SeatManagementService {
   }
 
   /**
-   * Convert held seats to issued seats (for paid bookings)
-   * @param {string} flightGroupId - Flight group ID
-   * @param {Object} passengers - Passenger counts
-   * @param {Object} transaction - Sequelize transaction
-   */
-  static async convertHeldToIssued(flightGroupId, passengers, transaction) {
-    try {
-      const seatBuckets = await GroupSeatBucket.findAll({
-        where: { flightGroupId },
-        transaction
-      });
-
-      for (const bucket of seatBuckets) {
-        const count = this.getRequestedCount(bucket.paxType, passengers);
-        if (count > 0) {
-          await bucket.update({
-            seatsOnHold: Math.max(0, bucket.seatsOnHold - count),
-            seatsIssued: bucket.seatsIssued + count
-          }, { transaction });
-        }
-      }
-
-    } catch (error) {
-      console.error('Convert held to issued failed:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Release seats from held or issued status (for cancellations)
    * @param {string} flightGroupId - Flight group ID
    * @param {Object} passengers - Passenger counts

@@ -48,6 +48,50 @@ npm test
 
 See `TESTING_SUMMARY.md` and `tests/README.md` for detailed documentation.
 
+## 🔧 Environment Setup
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=flight_group_db
+DB_USER=your_mysql_username
+DB_PASSWORD=your_mysql_password
+DB_DIALECT=mysql
+
+# JWT Secret (REQUIRED - generate a cryptographically secure random string)
+JWT_SECRET=your-super-secure-random-jwt-secret-key-at-least-32-characters
+
+# Redis Configuration (optional for development)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+# Server Configuration
+NODE_ENV=development
+PORT=3000
+
+# Email Configuration (optional)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-email-password
+
+# SMTP Configuration (for notifications)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-email-password
+SMTP_FROM=noreply@flightgroup.com
+SMTP_ALLOW_INSECURE=false  # Set to 'true' ONLY for local testing (NEVER in production)
+SMTP_REJECT_UNAUTHORIZED=true
+```
+
+**Security Note:** Never commit the `.env` file to version control. The `JWT_SECRET` must be a cryptographically secure random string (at least 32 characters). In production, set this via environment variables or a secret manager. **WARNING:** `SMTP_ALLOW_INSECURE` should NEVER be set to `true` in production environments as it disables TLS certificate verification, making the application vulnerable to man-in-the-middle attacks.
+
 ## 🏗️ Architecture
 
 The API follows a production-ready, modular architecture with clear separation of concerns:
