@@ -442,14 +442,136 @@ Authorization: Bearer YOUR_JWT_TOKEN
 ---
 
 ## 🎫 PNR Management
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|---------|
+| GET | `/pnr/validate/:pnr` | Validate PNR format | Authenticated |
+| POST | `/pnr/generate` | Generate new unique PNR | Admin/Manager |
+| GET | `/pnr/search/:pnr` | Search bookings by PNR | Authenticated |
+| GET | `/pnr/booking/:bookingId` | Get PNR info for booking | Authenticated |
+| POST | `/pnr/assign/:bookingId` | Assign PNR to booking | Admin/Manager |
 
-### Validate PNR
+### Validate PNR Format
 **GET** `/pnr/validate/{pnr}`
 
-### Generate PNR
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "PNR format is valid",
+  "data": {
+    "pnr": "ABC123",
+    "isValid": true,
+    "expectedFormat": "6-character alphanumeric (e.g., ABC123)"
+  }
+}
+```
+
+### Generate New PNR
 **POST** `/pnr/generate`
 
----
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "PNR generated successfully",
+  "data": {
+    "pnr": "XYZ789",
+    "format": "6-character alphanumeric",
+    "generatedAt": "2025-10-28T13:35:00.000Z"
+  }
+}
+```
+
+### Search Bookings by PNR
+**GET** `/pnr/search/{pnr}`
+
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "Found 2 booking(s) with PNR ABC123",
+  "data": {
+    "pnr": "ABC123",
+    "totalResults": 2,
+    "bookings": [
+      {
+        "id": "booking-uuid",
+        "status": "ISSUED",
+        "pnr": "ABC123",
+        "flightGroup": {
+          "carrierCode": "PK",
+          "flightNumber": "301",
+          "origin": "ISB",
+          "destination": "LHR",
+          "departureTimeUtc": "2025-12-01T10:00:00Z"
+        },
+        "passengerCount": 3,
+        "passengers": [
+          {
+            "paxType": "ADT",
+            "firstName": "John",
+            "lastName": "Doe",
+            "pnr": "ABC123",
+            "ticketNo": "PK-20251028-1234"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Get Booking PNR Info
+**GET** `/pnr/booking/{bookingId}`
+
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "Booking PNR information retrieved successfully",
+  "data": {
+    "bookingId": "booking-uuid",
+    "pnr": "ABC123",
+    "pnrMode": "PER_BOOKING_PNR",
+    "groupPnr": null,
+    "passengers": [
+      {
+        "id": "passenger-uuid",
+        "paxType": "ADT",
+        "firstName": "John",
+        "lastName": "Doe",
+        "pnr": "ABC123",
+        "ticketNo": "PK-20251028-1234"
+      }
+    ],
+    "hasTicketNumbers": true
+  }
+}
+```
+
+### Assign PNR to Booking
+**POST** `/pnr/assign/{bookingId}`
+```json
+{
+  "flightGroupId": "flight-group-uuid"
+}
+```
+
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "PNR assigned to booking successfully",
+  "data": {
+    "booking": {
+      "id": "booking-uuid",
+      "pnr": "ABC123"
+    },
+    "pnr": "ABC123",
+    "pnrMode": "PER_BOOKING_PNR"
+  }
+}
+```
 
 ## ⚙️ Background Jobs (Admin Only)
 
