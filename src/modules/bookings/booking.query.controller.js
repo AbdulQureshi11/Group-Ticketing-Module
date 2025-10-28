@@ -1,0 +1,312 @@
+import { BookingRequest, FlightGroup, BookingPassenger, Agency, GroupSeatBucket, PaymentProof, User } from '../../database/index.js';
+import { Op } from 'sequelize';
+
+/**
+ * GET /bookings
+ * List bookings with filters (agency, status, group, date)
+ * Accessible by authenticated users - filtered by agency for non-admins
+ */
+export const getBookings = async (req, res) => {
+  try {
+    const {
+      status,
+      agencyId,
+      flightGroupId,
+      dateFrom,
+      dateTo,
+      page,
+      limit
+    } = req.query;
+
+    const userRole = req.user.role;
+    const userAgencyId = req.user.agencyId;
+
+    // Validate and parse pagination parameters
+    const validatedPage = Math.max(1, parseInt(page) || 1);
+    const validatedLimit = Math.max(1, Math.min(100, parseInt(limit) || 20)); // Max 100 per page
+    const offset = (validatedPage - 1) * validatedLimit;
+
+    // Build where clause
+    const whereClause = {};
+
+    // Filter by user's agency if not admin
+    if (userRole !== 'ADMIN') {
+      whereClause.requestingAgencyId = userAgencyId;
+    } else if (agencyId) {
+      whereClause.requestingAgencyId = agencyId;
+    }
+
+    // Apply filters
+    if (status) {
+      whereClause.status = status;
+    }
+
+    if (flightGroupId) {
+      whereClause.flightGroupId = flightGroupId;
+    }
+
+    // Date range filter
+    if (dateFrom || dateTo) {
+      whereClause.createdAt = {};
+      if (dateFrom) {
+        whereClause.createdAt[Op.gte] = new Date(dateFrom);
+      }
+      if (dateTo) {
+        whereClause.createdAt[Op.lte] = new Date(dateTo);
+      }
+    }
+
+    const bookings = await BookingRequest.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: FlightGroup,
+          as: 'flightGroup',
+          attributes: ['id', 'carrierCode', 'flightNumber', 'origin', 'destination', 'departureTimeUtc', 'pnrMode'],
+          include: [{
+            model: Agency,
+            as: 'agency',
+            attributes: ['id', 'name', 'code']
+          }]
+        },
+        {
+          model: Agency,
+          as: 'requestingAgency',
+          attributes: ['id', 'name', 'code']
+        }
+      ],
+      attributes: { exclude: ['deletedAt'] },
+      limit: validatedLimit,
+      offset: offset,
+      order: [['createdAt', 'DESC']]
+    });
+
+    const response = {
+      bookings: bookings.rows.map(booking => ({
+        id: booking.id,
+        flightGroup: {
+          id: booking.flightGroup.id,
+          carrier: booking.flightGroup.carrierCode,
+          flightNumber: booking.flightGroup.flightNumber,
+          route: {
+            origin: booking.flightGroup.origin,
+            destination: booking.flightGroup.destination
+          },
+          departure: booking.flightGroup.departureTimeUtc,
+          pnrMode: booking.flightGroup.pnrMode,
+          agency: booking.flightGroup.agency
+        },
+        requestingAgency: booking.requestingAgency,
+        passengers: {
+          adults: booking.paxAdults,
+          children: booking.paxChildren,
+          infants: booking.paxInfants,
+          total: booking.paxAdults + booking.paxChildren + booking.paxInfants
+        },
+        status: booking.status,
+        holdExpiresAt: booking.holdExpiresAt,
+        approvalAt: booking.approvalAt,
+        paymentReceivedAt: booking.paymentReceivedAt,
+        remarks: booking.remarks,
+        createdAt: booking.createdAt,
+        updatedAt: booking.updatedAt
+      })),
+      pagination: {
+        total: bookings.count,
+        page: validatedPage,
+        limit: validatedLimit,
+        pages: Math.ceil(bookings.count / validatedLimit)
+      }
+    };
+
+    res.json({
+      success: true,
+      message: 'Bookings retrieved successfully',
+      data: response
+    });
+
+  } catch (error) {
+    console.error('Get bookings error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+/**
+ * GET /bookings/:id
+ * Get booking details with passengers and payment proofs
+ * Accessible by authenticated users within their agency or admins
+ */
+export const getBookingById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userRole = req.user.role;
+    const userAgencyId = req.user.agencyId;
+
+    const booking = await BookingRequest.findOne({
+      where: { id },
+      include: [
+        {
+          model: FlightGroup,
+          as: 'flightGroup',
+          attributes: ['id', 'carrierCode', 'flightNumber', 'origin', 'destination', 'departureTimeUtc', 'arrivalTimeUtc', 'pnrMode', 'baggageRule', 'fareNotes', 'terms'],
+          include: [
+            {
+              model: Agency,
+              as: 'agency',
+              attributes: ['id', 'name', 'code']
+            },
+            {
+              model: GroupSeatBucket,
+              as: 'seatBuckets',
+              attributes: ['paxType', 'totalSeats', 'seatsOnHold', 'seatsIssued', 'baseFare', 'taxAmount', 'feeAmount', 'currency']
+            }
+          ]
+        },
+        {
+          model: Agency,
+          as: 'requestingAgency',
+          attributes: ['id', 'name', 'code']
+        },
+        {
+          model: BookingPassenger,
+          as: 'passengers',
+          attributes: ['id', 'paxType', 'title', 'firstName', 'lastName', 'dob', 'nationality', 'passportNo', 'passportExpiry', 'pnr', 'ticketNo']
+        },
+        {
+          model: PaymentProof,
+          as: 'paymentProofs',
+          attributes: ['id', 'fileUrl', 'bankName', 'amount', 'currency', 'referenceNo', 'uploadedAt']
+        },
+        {
+          model: User,
+          as: 'requestedByUser',
+          attributes: ['id', 'username', 'email']
+        },
+        {
+          model: User,
+          as: 'approvedByUser',
+          attributes: ['id', 'username', 'email']
+        }
+      ],
+      attributes: { exclude: ['deletedAt'] }
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        success: false,
+        message: 'Booking not found'
+      });
+    }
+
+    // Check agency access
+    if (userRole !== 'ADMIN' && booking.requestingAgencyId !== userAgencyId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Can only access your own agency bookings'
+      });
+    }
+
+    // Calculate pricing
+    const pricing = {
+      breakdown: booking.flightGroup.seatBuckets.map(bucket => {
+        const count = {
+          ADT: booking.paxAdults,
+          CHD: booking.paxChildren,
+          INF: booking.paxInfants
+        }[bucket.paxType] || 0;
+        
+        if (count === 0) return null;
+        
+        const totalPerPax = bucket.baseFare + bucket.taxAmount + bucket.feeAmount;
+        return {
+          paxType: bucket.paxType,
+          count,
+          baseFare: bucket.baseFare,
+          taxAmount: bucket.taxAmount,
+          feeAmount: bucket.feeAmount,
+          totalPerPassenger: totalPerPax,
+          subtotal: totalPerPax * count,
+          currency: bucket.currency
+        };
+      }).filter(item => item !== null),
+      totalPassengers: booking.paxAdults + booking.paxChildren + booking.paxInfants,
+      totalAmount: booking.flightGroup.seatBuckets.reduce((sum, bucket) => {
+        const count = {
+          ADT: booking.paxAdults,
+          CHD: booking.paxChildren,
+          INF: booking.paxInfants
+        }[bucket.paxType] || 0;
+        
+        if (count === 0) return sum;
+        const totalPerPax = bucket.baseFare + bucket.taxAmount + bucket.feeAmount;
+        return sum + (totalPerPax * count);
+      }, 0),
+      currency: booking.flightGroup.seatBuckets[0]?.currency || 'USD'
+    };
+
+    const response = {
+      id: booking.id,
+      flightGroup: {
+        id: booking.flightGroup.id,
+        carrier: booking.flightGroup.carrierCode,
+        flightNumber: booking.flightGroup.flightNumber,
+        route: {
+          origin: booking.flightGroup.origin,
+          destination: booking.flightGroup.destination
+        },
+        times: {
+          departure: booking.flightGroup.departureTimeUtc,
+          arrival: booking.flightGroup.arrivalTimeUtc
+        },
+        pnrMode: booking.flightGroup.pnrMode,
+        baggageRule: booking.flightGroup.baggageRule,
+        fareNotes: booking.flightGroup.fareNotes,
+        terms: booking.flightGroup.terms,
+        agency: booking.flightGroup.agency,
+        seatBuckets: booking.flightGroup.seatBuckets
+      },
+      requestingAgency: booking.requestingAgency,
+      requestedBy: booking.requestedByUser,
+      passengers: {
+        adults: booking.paxAdults,
+        children: booking.paxChildren,
+        infants: booking.paxInfants,
+        total: booking.paxAdults + booking.paxChildren + booking.paxInfants,
+        details: booking.passengers
+      },
+      status: booking.status,
+      holdExpiresAt: booking.holdExpiresAt,
+      approval: {
+        userId: booking.approvalUserId,
+        approvedBy: booking.approvedByUser,
+        approvedAt: booking.approvalAt,
+        rejectionReason: booking.rejectionReason
+      },
+      payment: {
+        reference: booking.paymentReference,
+        receivedAt: booking.paymentReceivedAt,
+        proofs: booking.paymentProofs
+      },
+      pricing,
+      remarks: booking.remarks,
+      createdAt: booking.createdAt,
+      updatedAt: booking.updatedAt
+    };
+
+    res.json({
+      success: true,
+      message: 'Booking retrieved successfully',
+      data: response
+    });
+
+  } catch (error) {
+    console.error('Get booking by ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};

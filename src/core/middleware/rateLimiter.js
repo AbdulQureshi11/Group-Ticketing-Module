@@ -1,0 +1,46 @@
+import rateLimit from 'express-rate-limit';
+
+// Create a rate limiter middleware
+const createRateLimiter = () => {
+  const requestCounts = new Map();
+
+  return (req, res, next) => {
+    const key = req.ip;
+    const now = Date.now();
+    const windowMs = 15 * 60 * 1000; // 15 minutes
+    const maxRequests = process.env.NODE_ENV === 'production' ? 100 : 1000; // Stricter in production
+
+    if (!requestCounts.has(key)) {
+      requestCounts.set(key, { count: 1, resetTime: now + windowMs });
+    } else {
+      const userData = requestCounts.get(key);
+      if (now > userData.resetTime) {
+        userData.count = 1;
+        userData.resetTime = now + windowMs;
+      } else if (userData.count >= maxRequests) {
+        return res.status(429).json({
+          success: false,
+          message: 'Too many requests, please try again later'
+        });
+      } else {
+        userData.count++;
+      }
+    }
+    next();
+  };
+};
+
+// Express-rate-limit alternative (more robust)
+const expressRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+export { createRateLimiter, expressRateLimiter };
+export default expressRateLimiter;
