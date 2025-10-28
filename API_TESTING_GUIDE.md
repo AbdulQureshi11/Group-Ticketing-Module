@@ -573,6 +573,98 @@ Authorization: Bearer YOUR_JWT_TOKEN
 }
 ```
 
+## 🎯 Seat Management
+| Method | Endpoint | Description | Access |
+|--------|----------|-------------|---------|
+| GET | `/seat-management/availability/:groupId` | Check seat availability | Authenticated |
+| GET | `/seat-management/utilization/:groupId` | Get utilization stats | Authenticated |
+| POST | `/seat-management/hold` | Hold seats manually | Authenticated |
+| POST | `/seat-management/release` | Release held seats | Authenticated |
+| POST | `/seat-management/issue` | Issue seats (held→issued) | Authenticated |
+| POST | `/seat-management/allocate` | Allocate seats (complex) | Authenticated |
+| POST | `/seat-management/process-expired` | Process expired holds | Admin only |
+
+### Get Seat Availability
+**GET** `/seat-management/availability/{groupId}`
+
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "Seat availability retrieved successfully",
+  "data": {
+    "flightGroupId": "group-uuid",
+    "byPaxType": {
+      "ADT": {
+        "totalSeats": 100,
+        "seatsOnHold": 5,
+        "seatsIssued": 20,
+        "availableSeats": 75
+      },
+      "CHD": {
+        "totalSeats": 50,
+        "seatsOnHold": 2,
+        "seatsIssued": 8,
+        "availableSeats": 40
+      }
+    },
+    "totalAvailable": 115
+  }
+}
+```
+
+### Hold Seats
+**POST** `/seat-management/hold`
+```json
+{
+  "flightGroupId": "group-uuid",
+  "passengers": {
+    "adults": 2,
+    "children": 1,
+    "infants": 0
+  }
+}
+```
+
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "Seats held successfully",
+  "data": {
+    "flightGroupId": "group-uuid",
+    "passengers": {
+      "adults": 2,
+      "children": 1,
+      "infants": 0
+    },
+    "totalHeld": 3,
+    "heldBy": "user-uuid",
+    "heldAt": "2025-10-28T13:35:00.000Z"
+  }
+}
+```
+
+### Process Expired Holds
+**POST** `/seat-management/process-expired`
+
+**Sample Response:**
+```json
+{
+  "success": true,
+  "message": "Expired holds processed successfully",
+  "data": {
+    "processed": {
+      "total": 5,
+      "successful": 4,
+      "failed": 1
+    },
+    "seatsReleased": 12,
+    "bookings": [...]
+  }
+}
+```
+
 ## ⚙️ Background Jobs (Admin Only)
 
 ### Get Job Statistics
