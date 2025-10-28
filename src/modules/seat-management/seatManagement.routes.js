@@ -1,5 +1,4 @@
 import express from 'express';
-import { SeatManagementController } from './seatManagement.controller.js';
 import { authenticateToken } from '../../core/middleware/auth.js';
 
 const router = express.Router();
