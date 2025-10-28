@@ -1,4 +1,5 @@
-import { AgencySettings, Agency } from '../../database/index.js';
+import { SettingsService } from './settings.service.js';
+import { AuditService } from '../../services/auditService.js';
 
 /**
  * GET /settings/agency
@@ -9,52 +10,12 @@ export const getAgencySettings = async (req, res) => {
     const userRole = req.user.role;
     const userAgencyId = req.user.agencyId;
 
-    // Find or create agency settings
-    let agencySettings = await AgencySettings.findOne({
-      where: { agencyId: userAgencyId },
-      include: [{
-        model: Agency,
-        as: 'agency',
-        attributes: ['id', 'name', 'code']
-      }]
-    });
-
-    // If settings don't exist, create with defaults
-    if (!agencySettings) {
-      agencySettings = await AgencySettings.create({
-        agencyId: userAgencyId
-      });
-
-      // Fetch again with association
-      agencySettings = await AgencySettings.findOne({
-        where: { agencyId: userAgencyId },
-        include: [{
-          model: Agency,
-          as: 'agency',
-          attributes: ['id', 'name', 'code']
-        }]
-      });
-    }
-
-    // Remove internal fields that managers shouldn't see
-    const response = {
-      agencyId: agencySettings.agencyId,
-      allowManagerGroupCreate: agencySettings.allowManagerGroupCreate,
-      defaultHoldHours: agencySettings.defaultHoldHours,
-      defaultCurrency: agencySettings.defaultCurrency,
-      agency: agencySettings.agency
-    };
-
-    // Add admin-only fields if user is admin
-    if (userRole === 'ADMIN') {
-      response.notifyEmail = agencySettings.notifyEmail;
-      response.notifyPhone = agencySettings.notifyPhone;
-    }
+    const settings = await SettingsService.getAgencySettings(userAgencyId, userRole);
 
     res.json({
       success: true,
       message: 'Agency settings retrieved successfully',
-      data: response
+      data: settings
     });
 
   } catch (error) {
@@ -75,105 +36,38 @@ export const updateAgencySettings = async (req, res) => {
     const userRole = req.user.role;
     const userAgencyId = req.user.agencyId;
 
-    const {
-      allowManagerGroupCreate,
-      defaultHoldHours,
-      defaultCurrency,
-      notifyEmail,
-      notifyPhone
-    } = req.body;
-
-    // Find or create agency settings
-    let agencySettings = await AgencySettings.findOne({
-      where: { agencyId: userAgencyId }
-    });
-
-    if (!agencySettings) {
-      agencySettings = await AgencySettings.create({
-        agencyId: userAgencyId
-      });
-    }
-
-    // Prepare update data
-    const updateData = {};
-
-    // Manager can update these settings
-    if (defaultHoldHours !== undefined) {
-      // Validate hold hours range (1-72 hours)
-      const holdHours = parseInt(defaultHoldHours);
-      if (holdHours < 1 || holdHours > 72) {
-        return res.status(400).json({
-          success: false,
-          message: 'defaultHoldHours must be between 1 and 72 hours'
-        });
-      }
-      updateData.defaultHoldHours = holdHours;
-    }
-
-    if (defaultCurrency !== undefined) {
-      updateData.defaultCurrency = defaultCurrency;
-    }
-
-    // Admin-only settings
-    if (allowManagerGroupCreate !== undefined && userRole === 'ADMIN') {
-      updateData.allowManagerGroupCreate = Boolean(allowManagerGroupCreate);
-    }
-
-    if (notifyEmail !== undefined && userRole === 'ADMIN') {
-      updateData.notifyEmail = notifyEmail?.trim() || null;
-    }
-
-    if (notifyPhone !== undefined && userRole === 'ADMIN') {
-      updateData.notifyPhone = notifyPhone?.trim() || null;
-    }
-
-    // Update the settings
-    await agencySettings.update(updateData);
+    const settings = await SettingsService.updateAgencySettings(userAgencyId, req.body, userRole);
 
     // Log the settings change to audit
-    const { AuditService } = await import('../../services/auditService.js');
     await AuditService.logUserAction({
       userId: req.user.id,
       action: 'UPDATE_AGENCY_SETTINGS',
       resource: 'agency_settings',
-      resourceId: agencySettings.id,
-      details: updateData,
+      resourceId: settings.agencyId,
+      details: req.body,
       ipAddress: req.ip,
       userAgent: req.get('User-Agent')
     });
 
-    // Fetch updated settings with agency info
-    const updatedSettings = await AgencySettings.findOne({
-      where: { agencyId: userAgencyId },
-      include: [{
-        model: Agency,
-        as: 'agency',
-        attributes: ['id', 'name', 'code']
-      }]
-    });
-
-    // Prepare response (hide admin-only fields from managers)
-    const response = {
-      agencyId: updatedSettings.agencyId,
-      allowManagerGroupCreate: updatedSettings.allowManagerGroupCreate,
-      defaultHoldHours: updatedSettings.defaultHoldHours,
-      defaultCurrency: updatedSettings.defaultCurrency,
-      agency: updatedSettings.agency
-    };
-
-    if (userRole === 'ADMIN') {
-      response.notifyEmail = updatedSettings.notifyEmail;
-      response.notifyPhone = updatedSettings.notifyPhone;
-    }
-
     res.json({
       success: true,
       message: 'Agency settings updated successfully',
-      data: response
+      data: settings
     });
 
   } catch (error) {
     console.error('Update agency settings error:', error);
+
+    // Handle validation errors with appropriate status codes
+    if (error.message.includes('must be between') ||
+        error.message.includes('must be a non-empty') ||
+        error.message.includes('Only admins can')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: 'Internal server error'
