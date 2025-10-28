@@ -37,21 +37,51 @@ app.get('/', (req, res) => {
 })
 
 app.post('/login', async (req, res) => {
-  const { agencyCode, username, password } = req.body
-  if (!agencyCode || !username || !password) {
-    return res.status(400).json({ message: 'Missing required fields: agencyCode, username, password' })
+  // Guard against null/undefined req.body
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ message: 'Request body is required' })
   }
+
+  const { agencyCode, username, password } = req.body
+
+  // Validate agencyCode
+  if (!agencyCode || typeof agencyCode !== 'string') {
+    return res.status(400).json({ message: 'agencyCode is required and must be a string' })
+  }
+  const trimmedAgencyCode = agencyCode.trim()
+  if (!trimmedAgencyCode) {
+    return res.status(400).json({ message: 'agencyCode cannot be empty' })
+  }
+
+  // Validate username
+  if (!username || typeof username !== 'string') {
+    return res.status(400).json({ message: 'username is required and must be a string' })
+  }
+  const trimmedUsername = username.trim()
+  if (!trimmedUsername) {
+    return res.status(400).json({ message: 'username cannot be empty' })
+  }
+
+  // Validate password
+  if (!password || typeof password !== 'string') {
+    return res.status(400).json({ message: 'password is required and must be a string' })
+  }
+  const trimmedPassword = password.trim()
+  if (!trimmedPassword) {
+    return res.status(400).json({ message: 'password cannot be empty' })
+  }
+
   try {
     const user = await User.findOne({
       where: {
-        username: username,
+        username: trimmedUsername,
         isActive: true
       },
       include: [{
         model: Agency,
         as: 'agency',
         where: {
-          code: agencyCode,
+          code: trimmedAgencyCode,
           status: 'ACTIVE'
         }
       }]
@@ -59,7 +89,7 @@ app.post('/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' })
     }
-    const isValid = await bcrypt.compare(password, user.passwordHash)
+    const isValid = await bcrypt.compare(trimmedPassword, user.passwordHash)
     if (!isValid) {
       return res.status(401).json({ message: 'Invalid credentials' })
     }
