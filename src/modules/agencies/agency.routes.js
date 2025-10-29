@@ -1,6 +1,7 @@
 import express from 'express';
 import { getAgency, createAgency } from './agency.controller.js';
 import { authenticateToken, requireRoles, requireAgencyAccess } from '../../core/middleware/auth.js';
+import { validateAgencyCreation } from '../../core/middleware/validation.js';
 
 const router = express.Router();
 
@@ -17,8 +18,8 @@ router.get('/:id', requireAgencyAccess('id'), getAgency);
 /**
  * POST /agencies
  * Create new agency (Admin only)
- * Body: { code, name, address?, phone?, email? }
+ * Body: { code, name, contactEmail, contactPhone? }
  */
-router.post('/', requireRoles('Admin'), createAgency);
+router.post('/', requireRoles('Admin'), validateAgencyCreation, createAgency);
 
 export default router;

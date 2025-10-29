@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { generateAccessToken, generateRefreshToken, verifyToken } from '../../core/utils/jwt.js';
 import { User, RefreshToken, Agency } from '../../database/index.js';
 import { Op } from 'sequelize';
+import logger from '../../core/utils/logger.js';
 
 /**
  * POST /auth/login
@@ -37,7 +38,7 @@ export const login = async (req, res) => {
 
     if (!user) {
       // Log failed login attempt (security)
-      console.warn(`FAILED LOGIN: Username "${username}" from IP ${req.ip} - User not found`);
+      logger.warn('Failed login attempt', { username, ip: req.ip, reason: 'User not found' });
       
       return res.status(401).json({
         success: false,
@@ -49,7 +50,7 @@ export const login = async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       // Log failed login attempt (security)
-      console.warn(`FAILED LOGIN: Username "${username}" from IP ${req.ip} - Invalid password`);
+      logger.warn('Failed login attempt', { username, ip: req.ip, reason: 'Invalid password' });
       
       return res.status(401).json({
         success: false,

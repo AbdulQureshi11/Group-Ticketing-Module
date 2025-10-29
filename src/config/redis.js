@@ -45,41 +45,91 @@ export const checkRedisHealth = async () => {
 export const redisUtils = {
   // Set key with expiration
   setWithExpiry: async (key, value, expirySeconds) => {
-    await redis.setex(key, expirySeconds, JSON.stringify(value));
+    try {
+      await redis.setex(key, expirySeconds, JSON.stringify(value));
+    } catch (error) {
+      console.error(`Redis setWithExpiry failed for key ${key}:`, error);
+      return false;
+    }
   },
 
   // Get and parse JSON value
   getJSON: async (key) => {
-    const value = await redis.get(key);
-    return value ? JSON.parse(value) : null;
+    try {
+      const value = await redis.get(key);
+      if (!value) return null;
+      return JSON.parse(value);
+    } catch (error) {
+      console.error(`Redis getJSON failed to parse value for key ${key}:`, error);
+      // Attempt to delete corrupted key
+      try {
+        await redis.del(key);
+      } catch (delError) {
+        console.error(`Failed to delete corrupted key ${key}:`, delError);
+      }
+      return null;
+    }
   },
 
   // Delete key
   delete: async (key) => {
-    await redis.del(key);
+    try {
+      await redis.del(key);
+    } catch (error) {
+      console.error(`Redis delete failed for key ${key}:`, error);
+      return false;
+    }
   },
 
   // Check if key exists
   exists: async (key) => {
-    const result = await redis.exists(key);
-    return result === 1;
+    try {
+      const result = await redis.exists(key);
+      return result === 1;
+    } catch (error) {
+      console.error(`Redis exists failed for key ${key}:`, error);
+      return false;
+    }
   },
 
   // Increment counter
   increment: async (key) => {
-    return await redis.incr(key);
+    try {
+      return await redis.incr(key);
+    } catch (error) {
+      console.error(`Redis increment failed for key ${key}:`, error);
+      return null;
+    }
   },
 
   // Set multiple values
   mset: async (keyValuePairs) => {
-    const flattened = keyValuePairs.flat();
-    await redis.mset(...flattened);
+    try {
+      const flattened = keyValuePairs.flat();
+      await redis.mset(...flattened);
+    } catch (error) {
+      console.error('Redis mset failed:', error);
+      return false;
+    }
   },
 
   // Get multiple values
   mget: async (keys) => {
-    const values = await redis.mget(...keys);
-    return values.map(value => value ? JSON.parse(value) : null);
+    try {
+      const values = await redis.mget(...keys);
+      return values.map((value, index) => {
+        if (!value) return null;
+        try {
+          return JSON.parse(value);
+        } catch (parseError) {
+          console.error(`Redis mget failed to parse value for key ${keys[index]}:`, parseError);
+          return null;
+        }
+      });
+    } catch (error) {
+      console.error('Redis mget failed:', error);
+      return keys.map(() => null);
+    }
   }
 };
 

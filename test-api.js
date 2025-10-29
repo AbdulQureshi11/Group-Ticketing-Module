@@ -2,7 +2,7 @@
 
 import fetch from 'node-fetch';
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = 'http://localhost:3000';
 
 async function testEndpoint(method, url, options = {}) {
   try {
@@ -15,7 +15,13 @@ async function testEndpoint(method, url, options = {}) {
       body: options.body ? JSON.stringify(options.body) : undefined
     });
 
-    const data = await response.json().catch(() => ({}));
+    let data;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.error(`Failed to parse JSON response: ${parseError.message}`);
+      data = { rawText: await response.text() };
+    }
 
     console.log(`\n${method} ${url}`);
     console.log(`Status: ${response.status}`);

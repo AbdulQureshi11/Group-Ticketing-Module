@@ -1,11 +1,44 @@
 import { SeatManagementService } from './seatManagement.service.js';
 import { sequelize } from '../../config/database.js';
+import { ROLES } from '../../core/constants/roles.js';
 
 /**
  * Seat Management Controller
  * Handles seat availability, allocation, and management operations
  */
 export class SeatManagementController {
+  /**
+   * Validate passenger input data
+   * @param {Object} body - Request body
+   * @param {Object} res - Response object
+   * @param {Object} transaction - Database transaction
+   * @returns {Object|null} Validated data or null if invalid
+   */
+  static validatePassengersInput(body, res, transaction) {
+    const { flightGroupId, passengers } = body;
+
+    if (!flightGroupId || !passengers) {
+      res.status(400).json({
+        success: false,
+        message: 'flightGroupId and passengers are required'
+      });
+      return null;
+    }
+
+    const { adults = 0, children = 0, infants = 0 } = passengers;
+    const totalPassengers = adults + children + infants;
+
+    if (totalPassengers === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'At least one passenger is required'
+      });
+      return null;
+    }
+
+    return { flightGroupId, passengers: { adults, children, infants }, totalPassengers };
+  }
+
   /**
    * GET /seat-management/availability/:groupId
    * Get real-time seat availability for a flight group
@@ -70,40 +103,26 @@ export class SeatManagementController {
    */
   static async holdSeats(req, res, next) {
     const transaction = await sequelize.transaction();
-
+    
     try {
-      const { flightGroupId, passengers } = req.body;
+      const validated = this.validatePassengersInput(req.body, res, transaction);
+      if (!validated) {
+        await transaction.rollback();
+        return;
+      }
+      
+      const { flightGroupId, passengers, totalPassengers } = validated;
       const userId = req.user?.id;
-
-      if (!flightGroupId || !passengers) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'flightGroupId and passengers are required'
-        });
-      }
-
-      // Validate passengers object
-      const { adults = 0, children = 0, infants = 0 } = passengers;
-      const totalPassengers = adults + children + infants;
-
-      if (totalPassengers === 0) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'At least one passenger is required'
-        });
-      }
-
+      
       await SeatManagementService.holdSeats(flightGroupId, passengers, transaction);
       await transaction.commit();
-
+      
       res.json({
         success: true,
         message: 'Seats held successfully',
         data: {
           flightGroupId,
-          passengers: { adults, children, infants },
+          passengers,
           totalHeld: totalPassengers,
           heldBy: userId,
           heldAt: new Date().toISOString()
@@ -133,28 +152,14 @@ export class SeatManagementController {
     const transaction = await sequelize.transaction();
 
     try {
-      const { flightGroupId, passengers } = req.body;
+      const validated = this.validatePassengersInput(req.body, res, transaction);
+      if (!validated) {
+        await transaction.rollback();
+        return;
+      }
+      
+      const { flightGroupId, passengers, totalPassengers } = validated;
       const userId = req.user?.id;
-
-      if (!flightGroupId || !passengers) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'flightGroupId and passengers are required'
-        });
-      }
-
-      // Validate passengers object
-      const { adults = 0, children = 0, infants = 0 } = passengers;
-      const totalPassengers = adults + children + infants;
-
-      if (totalPassengers === 0) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'At least one passenger is required'
-        });
-      }
 
       await SeatManagementService.releaseSeats(flightGroupId, passengers, transaction);
       await transaction.commit();
@@ -164,7 +169,7 @@ export class SeatManagementController {
         message: 'Seats released successfully',
         data: {
           flightGroupId,
-          passengers: { adults, children, infants },
+          passengers,
           totalReleased: totalPassengers,
           releasedBy: userId,
           releasedAt: new Date().toISOString()
@@ -186,28 +191,14 @@ export class SeatManagementController {
     const transaction = await sequelize.transaction();
 
     try {
-      const { flightGroupId, passengers } = req.body;
+      const validated = this.validatePassengersInput(req.body, res, transaction);
+      if (!validated) {
+        await transaction.rollback();
+        return;
+      }
+      
+      const { flightGroupId, passengers, totalPassengers } = validated;
       const userId = req.user?.id;
-
-      if (!flightGroupId || !passengers) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'flightGroupId and passengers are required'
-        });
-      }
-
-      // Validate passengers object
-      const { adults = 0, children = 0, infants = 0 } = passengers;
-      const totalPassengers = adults + children + infants;
-
-      if (totalPassengers === 0) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: 'At least one passenger is required'
-        });
-      }
 
       await SeatManagementService.issueSeats(flightGroupId, passengers, transaction);
       await transaction.commit();
@@ -217,7 +208,7 @@ export class SeatManagementController {
         message: 'Seats issued successfully',
         data: {
           flightGroupId,
-          passengers: { adults, children, infants },
+          passengers,
           totalIssued: totalPassengers,
           issuedBy: userId,
           issuedAt: new Date().toISOString()
@@ -240,7 +231,7 @@ export class SeatManagementController {
       const userRole = req.user?.role;
 
       // Only admins can trigger this operation
-      if (userRole !== 'ADMIN') {
+      if (userRole !== ROLES.ADMIN) {
         return res.status(403).json({
           success: false,
           message: 'Access denied: Only administrators can process expired holds'

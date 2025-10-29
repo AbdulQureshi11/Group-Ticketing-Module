@@ -1,4 +1,5 @@
 import { PNRManagementService } from './pnrManagement.service.js';
+import { BookingRequest } from '../../database/index.js';
 
 /**
  * GET /pnr/validate/:pnr
@@ -162,7 +163,6 @@ export const getBookingPNRInfo = async (req, res) => {
     if (userRole !== 'ADMIN') {
       // We need to check if this booking belongs to the user's agency
       // Since getBookingPNRInfo doesn't return agency info, let's get the booking separately
-      const { BookingRequest } = await import('../../database/index.js');
       const booking = await BookingRequest.findOne({
         where: { id: bookingId },
         attributes: ['requestingAgencyId']
@@ -226,7 +226,6 @@ export const assignPNRToBooking = async (req, res) => {
 
     // Check agency access if not admin
     if (userRole !== 'ADMIN') {
-      const { BookingRequest } = await import('../../database/index.js');
       const booking = await BookingRequest.findOne({
         where: { id: bookingId },
         attributes: ['requestingAgencyId']

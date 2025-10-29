@@ -38,9 +38,9 @@ export class PricingService {
       const pricingMap = {};
       seatBuckets.forEach(bucket => {
         pricingMap[bucket.paxType] = {
-          baseFare: parseFloat(bucket.baseFare),
-          taxAmount: parseFloat(bucket.taxAmount),
-          feeAmount: parseFloat(bucket.feeAmount),
+          baseFare: Math.round(Number(bucket.baseFare) * 100), // Store in cents
+          taxAmount: Math.round(Number(bucket.taxAmount) * 100),
+          feeAmount: Math.round(Number(bucket.feeAmount) * 100),
           currency: bucket.currency,
           totalSeats: bucket.totalSeats,
           seatsOnHold: bucket.seatsOnHold,
@@ -48,6 +48,13 @@ export class PricingService {
           availableSeats: bucket.totalSeats - bucket.seatsOnHold - bucket.seatsIssued
         };
       });
+
+      // Validate required passenger types exist
+      const requiredTypes = ['ADT', 'CHD', 'INF'];
+      const missingTypes = requiredTypes.filter(type => !pricingMap[type]);
+      if (missingTypes.length > 0) {
+        throw new Error(`Missing pricing data for passenger types: ${missingTypes.join(', ')}`);
+      }
 
       // Calculate pricing per passenger type
       const breakdown = {
@@ -98,18 +105,19 @@ export class PricingService {
       throw new Error(`Not enough ${type.toLowerCase()} seats available. Requested: ${count}, Available: ${bucket.availableSeats}`);
     }
 
-    const baseFare = bucket.baseFare * count;
-    const taxAmount = bucket.taxAmount * count;
-    const feeAmount = bucket.feeAmount * count;
-    const totalFare = baseFare + taxAmount + feeAmount;
+    // Calculate in cents, then convert back to decimal
+    const baseFareCents = bucket.baseFare * count;
+    const taxAmountCents = bucket.taxAmount * count;
+    const feeAmountCents = bucket.feeAmount * count;
+    const totalFareCents = baseFareCents + taxAmountCents + feeAmountCents;
 
     return {
       type,
       count,
-      baseFare,
-      taxAmount,
-      feeAmount,
-      totalFare,
+      baseFare: baseFareCents / 100,
+      taxAmount: taxAmountCents / 100,
+      feeAmount: feeAmountCents / 100,
+      totalFare: totalFareCents / 100,
       availableSeats: bucket.availableSeats
     };
   }
@@ -215,10 +223,10 @@ export class PricingService {
         seatsOnHold: bucket.seatsOnHold,
         seatsIssued: bucket.seatsIssued,
         availableSeats: bucket.totalSeats - bucket.seatsOnHold - bucket.seatsIssued,
-        baseFare: parseFloat(bucket.baseFare),
-        taxAmount: parseFloat(bucket.taxAmount),
-        feeAmount: parseFloat(bucket.feeAmount),
-        totalFare: parseFloat(bucket.baseFare) + parseFloat(bucket.taxAmount) + parseFloat(bucket.feeAmount),
+        baseFare: Number(bucket.baseFare),
+        taxAmount: Number(bucket.taxAmount),
+        feeAmount: Number(bucket.feeAmount),
+        totalFare: Number(bucket.baseFare) + Number(bucket.taxAmount) + Number(bucket.feeAmount),
         currency: bucket.currency
       }));
 
@@ -226,5 +234,46 @@ export class PricingService {
       console.error('Get pricing error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Calculate booking pricing from seat buckets (extracted from booking.query.controller.js)
+   * @param {Array} seatBuckets - Array of seat bucket objects
+   * @param {Object} paxCounts - Passenger counts { paxAdults, paxChildren, paxInfants }
+   * @returns {Object} Pricing breakdown with totals
+   */
+  static calculateBookingPricingFromBuckets(seatBuckets, paxCounts) {
+    const { paxAdults = 0, paxChildren = 0, paxInfants = 0 } = paxCounts;
+    
+    const breakdown = seatBuckets.map(bucket => {
+      const count = {
+        ADT: paxAdults,
+        CHD: paxChildren,
+        INF: paxInfants
+      }[bucket.paxType] || 0;
+      
+      if (count === 0) return null;
+      
+      const totalPerPax = bucket.baseFare + bucket.taxAmount + bucket.feeAmount;
+      return {
+        paxType: bucket.paxType,
+        count,
+        baseFare: bucket.baseFare,
+        taxAmount: bucket.taxAmount,
+        feeAmount: bucket.feeAmount,
+        totalPerPassenger: totalPerPax,
+        subtotal: totalPerPax * count,
+        currency: bucket.currency
+      };
+    }).filter(item => item !== null);
+
+    const totalAmount = breakdown.reduce((sum, item) => sum + item.subtotal, 0);
+    
+    return {
+      breakdown,
+      totalPassengers: paxAdults + paxChildren + paxInfants,
+      totalAmount,
+      currency: seatBuckets[0]?.currency || 'USD'
+    };
   }
 }

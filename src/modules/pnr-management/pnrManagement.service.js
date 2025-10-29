@@ -1,9 +1,11 @@
+import crypto from 'crypto';
 import { FlightGroup, BookingRequest, BookingPassenger } from '../../database/index.js';
 import { 
   NotGroupPnrModeError, 
   FlightGroupNotFoundError, 
   InvalidPnrFormatError,
-  PnrAlreadyExistsError
+  PnrAlreadyExistsError,
+  BookingNotFoundError
 } from '../../core/utils/errors.js';
 
 /**
@@ -30,12 +32,13 @@ export class PNRManagementService {
    * @returns {string} 13-digit ticket number
    */
   static generateTicketNumber(carrierCode = 'PK') {
-    // Format: CARRIER-YYYYMMDD-XXXX (13 digits total)
+    // Format: CARRIER-YYYYMMDD-XXXXXX (15 digits total with 6-digit random suffix)
     const date = new Date();
     const dateStr = date.getFullYear().toString() + 
                    (date.getMonth() + 1).toString().padStart(2, '0') + 
                    date.getDate().toString().padStart(2, '0');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    // Use crypto for cryptographically strong random number (0-999999)
+    const random = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
     return `${carrierCode}-${dateStr}-${random}`;
   }
 
@@ -140,13 +143,18 @@ export class PNRManagementService {
         let pnr;
 
         if (flightGroup.pnrMode === 'GROUP_PNR') {
-          // For GROUP_PNR, use the flight group's PNR or generate one
-          pnr = flightGroup.groupPnr || await this.generateUniquePNR();
-          
-          // Update flight group with PNR if not set
+          // For GROUP_PNR, atomically set or retrieve group PNR
           if (!flightGroup.groupPnr) {
-            await flightGroup.update({ groupPnr: pnr });
+            const newPnr = await this.generateUniquePNR();
+            // Atomic update: only set if still null
+            await FlightGroup.update(
+              { groupPnr: newPnr },
+              { where: { id: flightGroupId, groupPnr: null } }
+            );
+            // Re-fetch to get the winning PNR (ours or another process's)
+            await flightGroup.reload();
           }
+          pnr = flightGroup.groupPnr;
         } else {
           // For PER_BOOKING_PNR, generate unique PNR for this booking
           pnr = await this.generateUniquePNR();
@@ -212,30 +220,38 @@ export class PNRManagementService {
         }
 
         // Generate or get group PNR
-        const groupPNR = flightGroup.groupPnr || await this.generateUniquePNR();
-
-        // Update flight group with PNR if not set
         if (!flightGroup.groupPnr) {
-          await flightGroup.update({ groupPnr: groupPNR });
+          const newPnr = await this.generateUniquePNR();
+          // Atomic update: only set if still null
+          await FlightGroup.update(
+            { groupPnr: newPnr },
+            { where: { id: flightGroupId, groupPnr: null } }
+          );
+          // Re-fetch to get the winning PNR (ours or another process's)
+          await flightGroup.reload();
         }
+        const groupPNR = flightGroup.groupPnr;
 
         // Update all bookings with the same PNR - this is where the race condition
         // is prevented by the database unique constraint
-        const updatedBookings = await BookingRequest.update(
+        const [updatedCount] = await BookingRequest.update(
           { pnr: groupPNR },
           { 
             where: { 
               id: bookingIds,
               flightGroupId 
-            },
-            returning: true
+            }
           }
         );
+        
+        const bookings = await BookingRequest.findAll({
+          where: { id: bookingIds, flightGroupId }
+        });
 
         return {
           groupPNR,
-          updatedCount: updatedBookings[0],
-          bookings: updatedBookings[1]
+          updatedCount,
+          bookings
         };
 
       } catch (error) {
@@ -270,20 +286,21 @@ export class PNRManagementService {
    * @returns {Object} Updated passengers with ticket numbers
    */
   static async assignTicketNumbers(bookingId, carrierCode = 'PK') {
+    const transaction = await BookingPassenger.sequelize.transaction();
     try {
       const passengers = await BookingPassenger.findAll({
-        where: { bookingId }
+        where: { bookingId },
+        transaction
       });
 
       if (passengers.length === 0) {
         throw new BookingNotFoundError('No passengers found for this booking');
       }
 
-      // Generate unique ticket numbers for each passenger
       const updatedPassengers = [];
       for (const passenger of passengers) {
         const ticketNumber = await this.generateUniqueTicketNumber(carrierCode);
-        await passenger.update({ ticketNo: ticketNumber });
+        await passenger.update({ ticketNo: ticketNumber }, { transaction });
         updatedPassengers.push({
           id: passenger.id,
           paxType: passenger.paxType,
@@ -291,6 +308,7 @@ export class PNRManagementService {
         });
       }
 
+      await transaction.commit();
       return {
         bookingId,
         carrierCode,
@@ -298,6 +316,7 @@ export class PNRManagementService {
       };
 
     } catch (error) {
+      await transaction.rollback();
       console.error('Assign ticket numbers error:', error);
       throw error;
     }
@@ -329,12 +348,16 @@ export class PNRManagementService {
       if (!booking) {
         throw new BookingNotFoundError();
       }
+      
+      if (!booking.flightGroup) {
+        throw new Error('Flight group not found for booking');
+      }
 
       return {
         bookingId: booking.id,
         pnr: booking.pnr,
-        pnrMode: booking.flightGroup.pnrMode,
-        groupPnr: booking.flightGroup.groupPnr,
+        pnrMode: booking.flightGroup?.pnrMode || null,
+        groupPnr: booking.flightGroup?.groupPnr || null,
         passengers: booking.passengers,
         hasTicketNumbers: booking.passengers.some(p => p.ticketNo)
       };
@@ -362,8 +385,8 @@ export class PNRManagementService {
    * @returns {boolean} True if valid format
    */
   static validateTicketNumberFormat(ticketNumber) {
-    // Format: CARRIER-YYYYMMDD-XXXX
-    const ticketRegex = /^[A-Z]{2}-\d{8}-\d{4}$/;
+    // Format: CARRIER-YYYYMMDD-XXXXXX
+    const ticketRegex = /^[A-Z]{2}-\d{8}-\d{6}$/;
     return ticketRegex.test(ticketNumber);
   }
 

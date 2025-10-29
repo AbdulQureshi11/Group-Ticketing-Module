@@ -69,13 +69,16 @@ describe('Groups API', () => {
 
   describe('POST /groups', () => {
     it('should create new group with valid data', async () => {
+      const departureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      const returnDate = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000).toISOString();
+
       const groupData = {
         title: 'Test Group',
         description: 'Test flight group',
         origin: 'NYC',
         destination: 'LAX',
-        departureDate: '2024-12-01T10:00:00Z',
-        returnDate: '2024-12-10T15:00:00Z',
+        departureDate,
+        returnDate,
         totalSeats: 100,
         basePrice: 500,
         currency: 'USD'
@@ -107,13 +110,16 @@ describe('Groups API', () => {
     let testGroup;
 
     beforeAll(async () => {
+      const departureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const returnDate = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000);
+
       testGroup = await FlightGroup.create({
         title: 'Test Group Details',
         description: 'Test flight group for details',
         origin: 'NYC',
         destination: 'LAX',
-        departureDate: new Date('2024-12-01T10:00:00Z'),
-        returnDate: new Date('2024-12-10T15:00:00Z'),
+        departureDate,
+        returnDate,
         totalSeats: 100,
         basePrice: 500,
         currency: 'USD',
@@ -135,7 +141,7 @@ describe('Groups API', () => {
 
     it('should return 404 for non-existent group', async () => {
       const response = await request(app)
-        .get('/groups/99999')
+        .get('/groups/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(404);
 
@@ -147,13 +153,16 @@ describe('Groups API', () => {
     let testGroup;
 
     beforeAll(async () => {
+      const departureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const returnDate = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000);
+
       testGroup = await FlightGroup.create({
         title: 'Test Group Update',
         description: 'Test flight group for update',
         origin: 'NYC',
         destination: 'LAX',
-        departureDate: new Date('2024-12-01T10:00:00Z'),
-        returnDate: new Date('2024-12-10T15:00:00Z'),
+        departureDate,
+        returnDate,
         totalSeats: 100,
         basePrice: 500,
         currency: 'USD',

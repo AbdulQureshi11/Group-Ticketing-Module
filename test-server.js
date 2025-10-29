@@ -35,12 +35,22 @@ app.get('/health', (req, res) => {
 });
 
 // Error handler
+const sanitizeError = (err) => {
+  const code = err.status || err.statusCode || 500;
+  if (code >= 500) {
+    return "Internal Server Error";
+  } else {
+    // For client errors, return a short, sanitized message
+    return err.message && err.message.length < 100 ? err.message : "Bad Request";
+  }
+};
+
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(500).json({
     success: false,
     message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    error: sanitizeError(err)
   });
 });
 

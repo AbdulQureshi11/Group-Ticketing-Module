@@ -11,12 +11,24 @@ const GroupAgencyAllocation = sequelize.define('GroupAgencyAllocation', {
   flightGroupId: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'flight_group_id'
+    field: 'flight_group_id',
+    references: {
+      model: 'flight_groups',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'RESTRICT'
   },
   agencyId: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'agency_id'
+    field: 'agency_id',
+    references: {
+      model: 'agencies',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'RESTRICT'
   },
   paxType: {
     type: DataTypes.ENUM('ADT', 'CHD', 'INF'),

@@ -19,7 +19,7 @@ const createRateLimiter = () => {
   // Run cleanup every windowMs
   const cleanupInterval = setInterval(cleanup, windowMs);
 
-  return (req, res, next) => {
+  const middleware = (req, res, next) => {
     const key = req.ip;
     const now = Date.now();
 
@@ -41,12 +41,17 @@ const createRateLimiter = () => {
     }
     next();
   };
+
+  // Attach cleanup method for proper resource management
+  middleware.cleanup = () => clearInterval(cleanupInterval);
+
+  return middleware;
 };
 
 // Express-rate-limit alternative (more robust)
 const expressRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // limit each IP to 100 requests per windowMs
+  max: process.env.NODE_ENV === 'production' ? 100 : process.env.NODE_ENV === 'test' ? 10 : 1000, // limit each IP to 10 requests per windowMs in test
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'

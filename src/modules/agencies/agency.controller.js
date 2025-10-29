@@ -28,7 +28,7 @@ export const getAgency = async (req, res) => {
     }
 
     // Check if user has access to this agency
-    if (userRole !== 'Admin' && agency.id !== parseInt(id)) {
+    if (userRole !== 'Admin' && parseInt(id, 10) !== req.user.agencyId) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'

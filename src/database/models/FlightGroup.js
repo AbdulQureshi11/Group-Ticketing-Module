@@ -11,7 +11,13 @@ const FlightGroup = sequelize.define('FlightGroup', {
   agencyId: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'agency_id'
+    field: 'agency_id',
+    references: {
+      model: 'Agencies',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'RESTRICT'
   },
   carrierCode: {
     type: DataTypes.CHAR(2),
@@ -89,10 +95,39 @@ const FlightGroup = sequelize.define('FlightGroup', {
   createdBy: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'created_by'
+    field: 'created_by',
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    onUpdate: 'CASCADE',
+    onDelete: 'RESTRICT'
   }
 }, {
   timestamps: true,
+  validate: {
+    departureBeforeArrival() {
+      if (this.departureTimeUtc >= this.arrivalTimeUtc) {
+        throw new Error('Departure time must be before arrival time');
+      }
+    },
+    localTimeConsistency() {
+      if (this.departureTimeLocal.getTime() !== this.departureTimeUtc.getTime() ||
+          this.arrivalTimeLocal.getTime() !== this.arrivalTimeUtc.getTime()) {
+        throw new Error('Local times must represent the same instants as their UTC counterparts');
+      }
+    },
+    futureTimes() {
+      if (this.isNewRecord && (this.departureTimeUtc <= new Date() || this.arrivalTimeUtc <= new Date())) {
+        throw new Error('Departure and arrival times must be in the future for new records');
+      }
+    },
+    validSalesWindow() {
+      if (this.salesStart >= this.salesEnd || this.salesEnd > this.departureTimeUtc) {
+        throw new Error('Sales start must be before sales end, and sales end must be before or at departure time');
+      }
+    }
+  },
   indexes: [
     {
       fields: ['status', 'sales_start', 'sales_end'],

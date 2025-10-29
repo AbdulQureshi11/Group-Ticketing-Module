@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken, requireRoles } from '../../core/middleware/auth.js';
+import { authenticateToken, requireRoles, requireAgencyAccess } from '../../core/middleware/auth.js';
 import { 
   transitionBookingStatus, 
   processAutomatedTransitions, 
@@ -32,7 +32,7 @@ router.post('/process-automated', requireRoles('Admin'), processAutomatedTransit
  * Get status transition history for a booking
  * Accessible by authenticated users
  */
-router.get('/history/:bookingId', getBookingStatusHistory);
+router.get('/history/:bookingId', requireAgencyAccess('bookingId', 'booking'), getBookingStatusHistory);
 
 /**
  * GET /status-machine/transitions/:status

@@ -27,13 +27,16 @@ describe('Pricing API', () => {
       agencyId: testAgency.id,
     });
 
+    const departureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const returnDate = new Date(Date.now() + 39 * 24 * 60 * 60 * 1000);
+
     testGroup = await FlightGroup.create({
       title: 'Pricing Test Group',
       description: 'Test flight group for pricing',
       origin: 'NYC',
       destination: 'LAX',
-      departureDate: new Date('2024-12-01T10:00:00Z'),
-      returnDate: new Date('2024-12-10T15:00:00Z'),
+      departureDate,
+      returnDate,
       totalSeats: 100,
       basePrice: 500,
       currency: 'USD',
@@ -57,9 +60,9 @@ describe('Pricing API', () => {
 
   afterAll(async () => {
     // Cleanup
-    await FlightGroup.destroy({ where: {} });
-    await User.destroy({ where: {} });
-    await sequelize.models.Agency.destroy({ where: {} });
+    await FlightGroup.destroy({ where: { id: testGroup.id } });
+    await User.destroy({ where: { id: testUser.id } });
+    await sequelize.models.Agency.destroy({ where: { id: testAgency.id } });
   });
 
   describe('GET /pricing/flight-groups/:id', () => {

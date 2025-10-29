@@ -1,4 +1,5 @@
 import { verifyToken } from '../utils/jwt.js';
+import { AgencySettings, FlightGroup, BookingRequest, BookingPassenger } from '../models/index.js';
 
 /**
  * Middleware to authenticate JWT tokens
@@ -75,7 +76,6 @@ export const requireGroupCreationAccess = async (req, res, next) => {
   // Manager can create groups only if agency allows it
   if (role === 'MANAGER') {
     try {
-      const { AgencySettings } = await import('../models/index.js');
       const agencySettings = await AgencySettings.findOne({
         where: { agencyId }
       });
@@ -211,7 +211,6 @@ export const requireAgencyAccess = (idParam = 'id', resourceType = 'agency') => 
 
         case 'group':
           // For flight groups, check if group belongs to user's agency
-          const { FlightGroup } = await import('../models/index.js');
           const group = await FlightGroup.findOne({
             where: { id: req.params[idParam] },
             attributes: ['agencyId']
@@ -234,7 +233,6 @@ export const requireAgencyAccess = (idParam = 'id', resourceType = 'agency') => 
 
         case 'booking':
           // For booking requests, check if booking belongs to user's agency
-          const { BookingRequest } = await import('../models/index.js');
           const booking = await BookingRequest.findOne({
             where: { id: req.params[idParam] },
             attributes: ['requestingAgencyId']
@@ -257,7 +255,6 @@ export const requireAgencyAccess = (idParam = 'id', resourceType = 'agency') => 
 
         case 'passenger':
           // For passengers, check agency access via associated booking
-          const { BookingPassenger } = await import('../models/index.js');
           const passenger = await BookingPassenger.findOne({
             where: { id: req.params[idParam] },
             attributes: ['bookingId']

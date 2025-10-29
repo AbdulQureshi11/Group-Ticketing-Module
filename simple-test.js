@@ -7,7 +7,7 @@ async function test() {
     console.log('✅ Database connection successful');
     
     console.log('Testing model import...');
-    const { Agency } = await import('./src/models/entities/Agency.js');
+    const { default: Agency } = await import('./src/database/models/Agency.js');
     console.log('✅ Agency model imported successfully');
     
   } catch (error) {

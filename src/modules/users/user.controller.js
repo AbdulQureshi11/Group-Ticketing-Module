@@ -104,7 +104,7 @@ export const updateUser = async (req, res) => {
     // Find user
     const user = await User.findOne({
       where: {
-        id: parseInt(id),
+        id: id,
         agencyId: agencyId
       }
     });

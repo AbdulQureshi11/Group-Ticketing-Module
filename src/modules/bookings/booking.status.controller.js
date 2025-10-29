@@ -274,7 +274,6 @@ export const uploadPaymentProof = async (req, res) => {
     }
 
     // Perform payment proof upload within a transaction to prevent race conditions
-    const transaction = await sequelize.transaction();
     let statusTransitioned = false;
     
     try {

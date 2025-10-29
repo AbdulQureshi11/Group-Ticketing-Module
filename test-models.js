@@ -1,5 +1,5 @@
 import { sequelize } from './src/config/database.js';
-import models from './src/models/index.js';
+import models from './src/database/index.js';
 
 async function testModels() {
   try {

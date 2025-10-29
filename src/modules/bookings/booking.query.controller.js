@@ -1,6 +1,7 @@
 import { BookingRequest, FlightGroup, BookingPassenger, Agency, GroupSeatBucket, PaymentProof, User } from '../../database/index.js';
 import { Op } from 'sequelize';
 import { ROLES } from '../../core/constants/roles.js';
+import { PricingService } from '../pricing/pricing.service.js';
 
 /**
  * GET /bookings
@@ -234,43 +235,23 @@ export const getBookingById = async (req, res) => {
       });
     }
 
+    // Validate seat buckets exist
+    if (!booking.flightGroup.seatBuckets || booking.flightGroup.seatBuckets.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No seat buckets found for this flight group'
+      });
+    }
+
     // Calculate pricing
-    const pricing = {
-      breakdown: booking.flightGroup.seatBuckets.map(bucket => {
-        const count = {
-          ADT: booking.paxAdults,
-          CHD: booking.paxChildren,
-          INF: booking.paxInfants
-        }[bucket.paxType] || 0;
-        
-        if (count === 0) return null;
-        
-        const totalPerPax = bucket.baseFare + bucket.taxAmount + bucket.feeAmount;
-        return {
-          paxType: bucket.paxType,
-          count,
-          baseFare: bucket.baseFare,
-          taxAmount: bucket.taxAmount,
-          feeAmount: bucket.feeAmount,
-          totalPerPassenger: totalPerPax,
-          subtotal: totalPerPax * count,
-          currency: bucket.currency
-        };
-      }).filter(item => item !== null),
-      totalPassengers: booking.paxAdults + booking.paxChildren + booking.paxInfants,
-      totalAmount: booking.flightGroup.seatBuckets.reduce((sum, bucket) => {
-        const count = {
-          ADT: booking.paxAdults,
-          CHD: booking.paxChildren,
-          INF: booking.paxInfants
-        }[bucket.paxType] || 0;
-        
-        if (count === 0) return sum;
-        const totalPerPax = bucket.baseFare + bucket.taxAmount + bucket.feeAmount;
-        return sum + (totalPerPax * count);
-      }, 0),
-      currency: booking.flightGroup.seatBuckets[0]?.currency || 'USD'
-    };
+    const pricing = PricingService.calculateBookingPricingFromBuckets(
+      booking.flightGroup.seatBuckets,
+      { 
+        paxAdults: booking.paxAdults, 
+        paxChildren: booking.paxChildren, 
+        paxInfants: booking.paxInfants 
+      }
+    );
 
     const response = {
       id: booking.id,

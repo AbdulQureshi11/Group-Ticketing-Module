@@ -191,7 +191,10 @@ export class StatusMachineService {
         break;
 
       case 'Hold period must have expired':
-        if (!data.booking || data.booking.holdExpiresAt > new Date()) {
+        if (!data.booking || !data.booking.holdExpiresAt) {
+          throw new ValidationError('Hold expiration time is missing');
+        }
+        if (new Date(data.booking.holdExpiresAt) > new Date()) {
           throw new ValidationError('Hold period has not expired yet');
         }
         break;
@@ -215,7 +218,10 @@ export class StatusMachineService {
         break;
 
       case 'Payment deadline must have passed':
-        if (!data.booking || data.booking.paymentDeadline > new Date()) {
+        if (!data.booking || !data.booking.paymentDeadline) {
+          throw new ValidationError('Payment deadline is missing');
+        }
+        if (new Date(data.booking.paymentDeadline) > new Date()) {
           throw new ValidationError('Payment deadline has not passed yet');
         }
         break;

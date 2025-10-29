@@ -20,7 +20,8 @@ describe('Middleware', () => {
 
       expect(response.headers['x-content-type-options']).toBe('nosniff');
       expect(response.headers['x-frame-options']).toBe('DENY');
-      expect(response.headers['x-xss-protection']).toBe('1; mode=block');
+      // X-XSS-Protection set to '0' for legacy browser support
+      expect(response.headers['x-xss-protection']).toBe('0');
     });
   });
 });

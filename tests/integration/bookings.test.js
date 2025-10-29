@@ -27,13 +27,16 @@ describe('Bookings API', () => {
       agencyId: testAgency.id,
     });
 
+    const departureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days from now
+    const returnDate = new Date(Date.now() + 40 * 24 * 60 * 60 * 1000); // 40 days from now
+
     testGroup = await FlightGroup.create({
       title: 'Test Flight Group',
       description: 'Test flight group for bookings',
       origin: 'NYC',
       destination: 'LAX',
-      departureDate: new Date('2024-12-01T10:00:00Z'),
-      returnDate: new Date('2024-12-10T15:00:00Z'),
+      departureDate,
+      returnDate,
       totalSeats: 100,
       basePrice: 500,
       currency: 'USD',
@@ -224,7 +227,18 @@ describe('Bookings API', () => {
     let adminToken;
 
     beforeAll(async () => {
-      const adminUser = await User.findOne({ where: { role: 'admin' } });
+      // Create admin user if needed or reuse from previous test reliably
+      let adminUser = await User.findOne({ where: { username: 'adminuser' } });
+      if (!adminUser) {
+        adminUser = await User.create({
+          username: 'adminuser',
+          password: await bcrypt.hash('adminpass123', 10),
+          email: 'admin@example.com',
+          role: 'admin',
+          agencyId: testAgency.id,
+        });
+      }
+      
       adminToken = jwt.sign(
         {
           id: adminUser.id,

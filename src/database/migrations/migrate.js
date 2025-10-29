@@ -1,5 +1,5 @@
-import { sequelize } from '../config/database.js';
-import { User, Agency, Group, Booking, Passenger, AgencySettings, Allocation } from '../models/index.js';
+import { sequelize } from '../../config/database.js';
+import { User, Agency, Group, Booking, Passenger, AgencySettings, Allocation } from '../index.js';
 
 /**
  * Database Migration Script
@@ -36,6 +36,13 @@ const migrateDatabase = async () => {
 
     // Seed initial data
     console.log('🌱 Seeding initial data...');
+    
+    // Guard: Prevent seeding in production unless explicitly enabled
+    if (process.env.NODE_ENV === 'production' && process.env.SEED_DB !== 'true') {
+      console.log('⚠️  Skipping seed data in production (set SEED_DB=true to enable)');
+      console.log('✅ Database migration completed (tables created, no seed data)');
+      return;
+    }
 
     // Seed Agencies
     const agencies = [
@@ -72,11 +79,21 @@ const migrateDatabase = async () => {
     console.log('✅ Agencies seeding completed');
 
     // Seed Users
+    // Use environment variables for passwords, fallback to development defaults
     const bcrypt = (await import('bcryptjs')).default;
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'password123';
+    const managerPassword = process.env.SEED_MANAGER_PASSWORD || 'password123';
+    const agentPassword = process.env.SEED_AGENT_PASSWORD || 'password123';
+    
+    // Warn if using default passwords
+    if (!process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_MANAGER_PASSWORD || !process.env.SEED_AGENT_PASSWORD) {
+      console.log('⚠️  WARNING: Using default passwords for seed users. Set SEED_ADMIN_PASSWORD, SEED_MANAGER_PASSWORD, SEED_AGENT_PASSWORD in production.');
+    }
+    
     const users = [
       {
         username: 'admin',
-        password: await bcrypt.hash('password123', 10),
+        password: await bcrypt.hash(adminPassword, 10),
         role: 'Admin',
         agencyCode: 'ABC123',
         name: 'System Admin',
@@ -86,7 +103,7 @@ const migrateDatabase = async () => {
       },
       {
         username: 'manager',
-        password: await bcrypt.hash('password123', 10),
+        password: await bcrypt.hash(managerPassword, 10),
         role: 'Manager',
         agencyCode: 'ABC123',
         name: 'Branch Manager',
@@ -96,7 +113,7 @@ const migrateDatabase = async () => {
       },
       {
         username: 'agent',
-        password: await bcrypt.hash('password123', 10),
+        password: await bcrypt.hash(agentPassword, 10),
         role: 'Agent',
         agencyCode: 'XYZ456',
         name: 'Travel Agent',

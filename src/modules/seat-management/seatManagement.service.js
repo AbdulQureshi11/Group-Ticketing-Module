@@ -75,9 +75,10 @@ export class SeatManagementService {
   static async holdSeats(flightGroupId, passengers, transaction) {
     const { adults = 0, children = 0, infants = 0 } = passengers;
 
-    // Get seat buckets for this flight group
+    // Get seat buckets for this flight group with pessimistic locking
     const seatBuckets = await GroupSeatBucket.findAll({
       where: { flightGroupId },
+      lock: transaction.LOCK.UPDATE,
       transaction
     });
 
@@ -122,9 +123,15 @@ export class SeatManagementService {
       const requestedCount = this.getRequestedCount(bucket.paxType, passengers);
       
       if (requestedCount > 0) {
+        // Check for potential negative values
+        const newSeatsOnHold = bucket.seatsOnHold - requestedCount;
+        if (newSeatsOnHold < 0) {
+          console.error(`WARNING: Attempt to release more seats than held. Bucket ${bucket.id}, held: ${bucket.seatsOnHold}, releasing: ${requestedCount}`);
+        }
+        
         // Decrement seats on hold
         await bucket.update({
-          seatsOnHold: Math.max(0, bucket.seatsOnHold - requestedCount)
+          seatsOnHold: Math.max(0, newSeatsOnHold)
         }, { transaction });
       }
     }
@@ -148,9 +155,15 @@ export class SeatManagementService {
       const requestedCount = this.getRequestedCount(bucket.paxType, passengers);
       
       if (requestedCount > 0) {
+        // Check for potential negative values
+        const newSeatsOnHold = bucket.seatsOnHold - requestedCount;
+        if (newSeatsOnHold < 0) {
+          console.error(`WARNING: Attempt to issue more seats than held. Bucket ${bucket.id}, held: ${bucket.seatsOnHold}, issuing: ${requestedCount}`);
+        }
+        
         // Move seats from on_hold to issued
         await bucket.update({
-          seatsOnHold: Math.max(0, bucket.seatsOnHold - requestedCount),
+          seatsOnHold: Math.max(0, newSeatsOnHold),
           seatsIssued: bucket.seatsIssued + requestedCount
         }, { transaction });
       }
@@ -240,10 +253,15 @@ export class SeatManagementService {
    * @param {Object} transaction - Sequelize transaction
    */
   static async returnSeatsToAvailablePool(flightGroupId, seatsToReturn, transaction) {
+    // Validate and sanitize seatsToReturn to prevent SQL injection
+    const seatsToReturnInt = parseInt(seatsToReturn, 10);
+    if (!Number.isInteger(seatsToReturnInt) || seatsToReturnInt < 0) {
+      throw new Error('Invalid seatsToReturn value: must be a non-negative integer');
+    }
+    
     // Use atomic increment to avoid race conditions
-    await FlightGroup.update({
-      availableSeats: sequelize.literal(`availableSeats + ${seatsToReturn}`)
-    }, {
+    await FlightGroup.increment('availableSeats', {
+      by: seatsToReturnInt,
       where: { id: flightGroupId },
       transaction
     });
@@ -297,8 +315,13 @@ export class SeatManagementService {
           for (const bucket of booking.flightGroup.seatBuckets) {
             const count = this.getRequestedCount(bucket.paxType, passengers);
             if (count > 0) {
+              const newSeatsOnHold = bucket.seatsOnHold - count;
+              if (newSeatsOnHold < 0) {
+                console.error(`WARNING: Attempt to release more seats than held in expired booking. Bucket ${bucket.id}, held: ${bucket.seatsOnHold}, releasing: ${count}`);
+              }
+              
               await bucket.update({
-                seatsOnHold: Math.max(0, bucket.seatsOnHold - count)
+                seatsOnHold: Math.max(0, newSeatsOnHold)
               }, { transaction });
               totalReleasedSeats += count;
             }
@@ -357,9 +380,19 @@ export class SeatManagementService {
       for (const bucket of seatBuckets) {
         const count = this.getRequestedCount(bucket.paxType, passengers);
         if (count > 0) {
+          const newSeatsOnHold = bucket.seatsOnHold - count;
+          const newSeatsIssued = bucket.seatsIssued - count;
+          
+          if (newSeatsOnHold < 0) {
+            console.error(`WARNING: Attempt to release more held seats than available. Bucket ${bucket.id}, held: ${bucket.seatsOnHold}, releasing: ${count}`);
+          }
+          if (newSeatsIssued < 0) {
+            console.error(`WARNING: Attempt to release more issued seats than available. Bucket ${bucket.id}, issued: ${bucket.seatsIssued}, releasing: ${count}`);
+          }
+          
           await bucket.update({
-            seatsOnHold: Math.max(0, bucket.seatsOnHold - count),
-            seatsIssued: Math.max(0, bucket.seatsIssued - count)
+            seatsOnHold: Math.max(0, newSeatsOnHold),
+            seatsIssued: Math.max(0, newSeatsIssued)
           }, { transaction });
         }
       }

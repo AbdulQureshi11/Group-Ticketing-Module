@@ -2,6 +2,7 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import cors from 'cors'
+import expressRateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import { sequelize } from './src/config/database.js'
 import { User, Agency } from './src/database/index.js'
@@ -11,15 +12,20 @@ dotenv.config()
 const app = express()
 const port = 9000
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || (
+  process.env.NODE_ENV === 'production'
+    ? (() => { throw new Error('JWT_SECRET environment variable is required in production'); })()
+    : 'dev-jwt-secret-key-change-in-production'
+);
 
-if (!JWT_SECRET) {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('JWT_SECRET environment variable is required in production');
-  }
-  // Development fallback - change this in production
-  JWT_SECRET = 'dev-jwt-secret-key-change-in-production';
-}
+// Rate limiter for login endpoint
+const loginLimiter = expressRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts, please try again later' }
+});
 
 // Initialize database
 sequelize.authenticate().then(() => {
@@ -29,14 +35,17 @@ sequelize.authenticate().then(() => {
   process.exit(1)
 })
 
-app.use(cors())
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
+  credentials: true
+}))
 app.use(express.json())
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-app.post('/login', async (req, res) => {
+app.post('/login', loginLimiter, async (req, res) => {
   // Guard against null/undefined req.body
   if (!req.body || typeof req.body !== 'object') {
     return res.status(400).json({ message: 'Request body is required' })
@@ -63,11 +72,7 @@ app.post('/login', async (req, res) => {
   }
 
   // Validate password
-  if (!password || typeof password !== 'string') {
-    return res.status(400).json({ message: 'password is required and must be a string' })
-  }
-  const trimmedPassword = password.trim()
-  if (!trimmedPassword) {
+  if (!password || password.length === 0) {
     return res.status(400).json({ message: 'password cannot be empty' })
   }
 
@@ -89,7 +94,7 @@ app.post('/login', async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' })
     }
-    const isValid = await bcrypt.compare(trimmedPassword, user.passwordHash)
+    const isValid = await bcrypt.compare(password, user.passwordHash)
     if (!isValid) {
       return res.status(401).json({ message: 'Invalid credentials' })
     }

@@ -217,6 +217,7 @@ export class BookingService {
       }
 
       // Use status machine to transition to cancelled
+      const previousStatus = booking.status;
       const cancelledBooking = await StatusMachineService.transitionBookingStatus(
         bookingId,
         'CANCELLED',
@@ -226,7 +227,7 @@ export class BookingService {
       );
 
       // Release seats if booking was not yet issued
-      if (booking.status !== 'ISSUED') {
+      if (previousStatus !== 'ISSUED') {
         const passengers = {
           adults: booking.paxAdults,
           children: booking.paxChildren,
@@ -355,18 +356,33 @@ export class BookingService {
         throw new Error('Access denied: Can only issue tickets for your own agency bookings');
       }
 
-      // Assign ticket numbers to passengers
-      const bookingWithPassengers = await BookingRequest.findOne({
+      // Re-query booking with flightGroup and passengers to ensure associations are loaded
+      const bookingWithDetails = await BookingRequest.findOne({
         where: { id: bookingId },
-        include: [{
-          model: BookingPassenger,
-          as: 'passengers'
-        }],
+        include: [
+          {
+            model: BookingPassenger,
+            as: 'passengers'
+          },
+          {
+            model: FlightGroup,
+            as: 'flightGroup',
+            attributes: ['id', 'carrierCode']
+          }
+        ],
         transaction
       });
 
-      if (bookingWithPassengers.passengers && bookingWithPassengers.passengers.length > 0) {
-        await PNRManagementService.assignTicketNumbers(bookingId, issuedBooking.flightGroup.carrierCode);
+      if (!bookingWithDetails.flightGroup) {
+        throw new Error('Flight group not found for booking');
+      }
+
+      if (!bookingWithDetails.flightGroup.carrierCode) {
+        throw new Error('Carrier code not found for flight group');
+      }
+
+      if (bookingWithDetails.passengers && bookingWithDetails.passengers.length > 0) {
+        await PNRManagementService.assignTicketNumbers(bookingId, bookingWithDetails.flightGroup.carrierCode);
       }
 
       await transaction.commit();

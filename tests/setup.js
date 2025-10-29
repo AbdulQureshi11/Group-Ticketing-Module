@@ -1,11 +1,12 @@
 // Set test environment before any imports
 process.env.NODE_ENV = 'test';
 
-import { sequelize } from '../src/config/database.js';
 import dotenv from 'dotenv';
 
 // Load test environment variables
 dotenv.config({ path: '.env.test' });
+
+import { sequelize } from '../src/config/database.js';
 
 // Global test setup
 beforeAll(async () => {

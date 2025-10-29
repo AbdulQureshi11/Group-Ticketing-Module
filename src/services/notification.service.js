@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import winston from 'winston';
 import { v4 as uuidv4 } from 'uuid';
+import { escape as escapeHtml } from 'html-escaper';
 
 // Configure logger for notifications
 const notificationLogger = winston.createLogger({
@@ -26,12 +27,12 @@ const createEmailTransporter = () => {
   let rejectUnauthorized = true;
   
   // Allow explicit opt-out via SMTP_ALLOW_INSECURE for testing/local development
-  if (smtpAllowInsecure && ['true', '1'].includes(smtpAllowInsecure.toLowerCase())) {
+  if (smtpAllowInsecure && typeof smtpAllowInsecure === 'string' && ['true', '1'].includes(smtpAllowInsecure.toLowerCase())) {
     rejectUnauthorized = false;
   }
   
   // Allow override via SMTP_REJECT_UNAUTHORIZED (backwards compatibility)
-  if (rejectUnauthorizedEnv !== undefined) {
+  if (rejectUnauthorizedEnv !== undefined && typeof rejectUnauthorizedEnv === 'string') {
     rejectUnauthorized = !['false', '0'].includes(rejectUnauthorizedEnv.toLowerCase());
   }
   
@@ -334,12 +335,65 @@ export class NotificationService {
   }
 
   /**
+   * Safely escape data for HTML email templates to prevent XSS
+   * @param {*} value - Value to escape
+   * @returns {string} Escaped value
+   */
+  static escapeForHtml(value) {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') {
+      // For objects, escape each property
+      const escaped = {};
+      for (const [key, val] of Object.entries(value)) {
+        escaped[key] = this.escapeForHtml(val);
+      }
+      return escaped;
+    }
+    return escapeHtml(String(value));
+  }
+
+  /**
    * Generate email content based on template
    * @param {string} template - Template name
    * @param {Object} data - Template data
    * @returns {Object} HTML and text content
    */
   static generateEmailContent(template, data) {
+    // Escape all user-provided data to prevent XSS
+    const safeData = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (key === 'passengers' && Array.isArray(value)) {
+        // Special handling for passengers array
+        safeData[key] = value.map(p => ({
+          firstName: this.escapeForHtml(p.firstName),
+          lastName: this.escapeForHtml(p.lastName),
+          paxType: this.escapeForHtml(p.paxType)
+        }));
+      } else if (key === 'flightDetails' && typeof value === 'object') {
+        // Special handling for flightDetails object
+        safeData[key] = {
+          carrierCode: this.escapeForHtml(value.carrierCode),
+          flightNumber: this.escapeForHtml(value.flightNumber),
+          origin: this.escapeForHtml(value.origin),
+          destination: this.escapeForHtml(value.destination),
+          departureTime: value.departureTime // Keep as-is for Date processing
+        };
+      } else if (key === 'pricing' && typeof value === 'object') {
+        // Keep pricing as-is for numeric processing
+        safeData[key] = value;
+      } else if (key === 'paymentDeadline' || key === 'departureTime') {
+        // Keep dates as-is for Date processing
+        safeData[key] = value;
+      } else if (typeof value === 'number') {
+        // Keep numbers as-is
+        safeData[key] = value;
+      } else {
+        // Escape all other values
+        safeData[key] = this.escapeForHtml(value);
+      }
+    }
+    
+    data = safeData;
     const templates = {
       'booking-status-change': {
         html: `

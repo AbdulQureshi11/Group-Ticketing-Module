@@ -2,6 +2,8 @@ import { Queue, Worker } from 'bullmq';
 import redis from '../../config/redis.js';
 import { StatusMachineService } from '../status-machine/statusMachine.service.js';
 import { SeatManagementService } from '../seat-management/seatManagement.service.js';
+import AuditLog from '../../database/models/AuditLog.js';
+import { AuditService } from '../../services/audit.service.js';
 import winston from 'winston';
 
 // Configure logger for background jobs
@@ -30,12 +32,16 @@ export const jobQueues = {
  * Background Jobs Service - Handles all automated background processing
  */
 export class BackgroundJobsService {
+  static workers = [];
+
   /**
    * Initialize all background job workers
    */
   static initializeWorkers() {
+    const service = this;
+    
     // Status transitions worker
-    new Worker('status-transitions', async (job) => {
+    const statusWorker = new Worker('status-transitions', async (job) => {
       const { type, data } = job.data;
       
       try {
@@ -43,10 +49,10 @@ export class BackgroundJobsService {
         
         switch (type) {
           case 'process-automated-transitions':
-            return await this.processAutomatedTransitions();
+            return await service.processAutomatedTransitions();
           
           case 'transition-booking':
-            return await this.transitionBooking(data);
+            return await service.transitionBooking(data);
           
           default:
             throw new Error(`Unknown job type: ${type}`);
@@ -69,7 +75,7 @@ export class BackgroundJobsService {
     });
 
     // Seat expiry worker
-    new Worker('seat-expiry', async (job) => {
+    const seatExpiryWorker = new Worker('seat-expiry', async (job) => {
       const { type, data } = job.data;
       
       try {
@@ -77,10 +83,10 @@ export class BackgroundJobsService {
         
         switch (type) {
           case 'process-expired-holds':
-            return await this.processExpiredHolds();
+            return await service.processExpiredHolds();
           
           case 'update-seat-counters':
-            return await this.updateSeatCounters(data);
+            return await service.updateSeatCounters(data);
           
           default:
             throw new Error(`Unknown job type: ${type}`);
@@ -99,7 +105,7 @@ export class BackgroundJobsService {
     });
 
     // Notifications worker
-    new Worker('notifications', async (job) => {
+    const notificationsWorker = new Worker('notifications', async (job) => {
       const { type, data } = job.data;
       
       try {
@@ -107,13 +113,16 @@ export class BackgroundJobsService {
         
         switch (type) {
           case 'send-email':
-            return await this.sendEmail(data);
+            return await service.sendEmail(data);
           
           case 'send-sms':
-            return await this.sendSMS(data);
+            return await service.sendSMS(data);
           
           case 'booking-status-change':
-            return await this.sendBookingStatusNotification(data);
+            return await service.sendBookingStatusNotification(data);
+          
+          case 'send-bulk-expiry-notifications':
+            return await service.sendBulkExpiryNotifications(data);
           
           default:
             throw new Error(`Unknown job type: ${type}`);
@@ -136,7 +145,7 @@ export class BackgroundJobsService {
     });
 
     // Audit logging worker
-    new Worker('audit-logging', async (job) => {
+    const auditWorker = new Worker('audit-logging', async (job) => {
       const { type, data } = job.data;
       
       try {
@@ -144,13 +153,13 @@ export class BackgroundJobsService {
         
         switch (type) {
           case 'log-user-action':
-            return await this.logUserAction(data);
+            return await service.logUserAction(data);
           
           case 'log-booking-change':
-            return await this.logBookingChange(data);
+            return await service.logBookingChange(data);
           
           case 'log-system-event':
-            return await this.logSystemEvent(data);
+            return await service.logSystemEvent(data);
           
           default:
             throw new Error(`Unknown job type: ${type}`);
@@ -168,7 +177,20 @@ export class BackgroundJobsService {
       concurrency: 20
     });
 
+    // Store workers for graceful shutdown
+    this.workers.push(statusWorker, seatExpiryWorker, notificationsWorker, auditWorker);
+
     jobLogger.info('🎯 All background job workers initialized');
+  }
+
+  /**
+   * Gracefully shutdown all workers
+   */
+  static async shutdown() {
+    jobLogger.info('Shutting down background workers...');
+    await Promise.all(this.workers.map(worker => worker.close()));
+    this.workers = [];
+    jobLogger.info('All workers shut down');
   }
 
   /**
@@ -263,22 +285,24 @@ export class BackgroundJobsService {
     try {
       const { booking, previousStatus, newStatus, user, agency } = data;
       
-      // Queue email notification
-      await this.queueJob('notifications', 'send-email', {
-        to: user.email,
-        subject: `Booking Status Updated: ${previousStatus} → ${newStatus}`,
-        template: 'booking-status-change',
-        data: {
-          userName: user.name,
-          bookingId: booking.id,
-          previousStatus,
-          newStatus,
-          flightDetails: booking.flightGroup
-        }
-      });
+      // Queue email notification - validate email exists and is non-empty
+      if (user.email && typeof user.email === 'string' && user.email.trim().length > 0) {
+        await this.queueJob('notifications', 'send-email', {
+          to: user.email,
+          subject: `Booking Status Updated: ${previousStatus} → ${newStatus}`,
+          template: 'booking-status-change',
+          data: {
+            userName: user.name,
+            bookingId: booking.id,
+            previousStatus,
+            newStatus,
+            flightDetails: booking.flightGroup
+          }
+        });
+      }
 
-      // Queue SMS notification for critical status changes
-      if (['APPROVED', 'REJECTED', 'ISSUED'].includes(newStatus)) {
+      // Queue SMS notification for critical status changes - validate phone exists and is non-empty
+      if (user.phone && typeof user.phone === 'string' && user.phone.trim().length > 0 && ['APPROVED', 'REJECTED', 'ISSUED'].includes(newStatus)) {
         await this.queueJob('notifications', 'send-sms', {
           to: user.phone,
           message: `Booking ${booking.id} status: ${newStatus}`
@@ -294,33 +318,31 @@ export class BackgroundJobsService {
   }
 
   /**
+   * Send bulk expiry notifications
+   * @param {Object} data - Notification data
+   */
+  static async sendBulkExpiryNotifications(data) {
+    try {
+      const { expiredBookings } = data;
+      jobLogger.info(`Sending bulk expiry notifications for ${expiredBookings} bookings`);
+      // TODO: Implement bulk notification logic
+      return { sent: expiredBookings };
+    } catch (error) {
+      jobLogger.error(`Send bulk expiry notifications failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
    * Log user action for audit
    * @param {Object} data - Audit data
    */
   static async logUserAction(data) {
     try {
-      const { userId, action, resource, details, ipAddress, userAgent } = data;
+      jobLogger.info('Logging user action', { userId: data.userId, action: data.action });
       
-      // Store audit log in database (implement AuditLog model)
-      // For now, log to file and Redis
-      const auditEntry = {
-        timestamp: new Date().toISOString(),
-        userId,
-        action,
-        resource,
-        details,
-        ipAddress,
-        userAgent
-      };
-
-      // Store in Redis for recent activity (expires after 30 days)
-      await redis.setex(
-        `audit:user:${userId}:${Date.now()}`, 
-        30 * 24 * 60 * 60, // 30 days
-        JSON.stringify(auditEntry)
-      );
-
-      jobLogger.info('User action logged', auditEntry);
+      // Delegate to AuditService for proper database persistence and Redis caching
+      return await AuditService.logUserAction(data);
       
     } catch (error) {
       jobLogger.error(`Log user action failed: ${error.message}`);
@@ -443,17 +465,15 @@ export class BackgroundJobsService {
   }
 
   /**
-   * Send SMS notification
-   * @param {Object} data - SMS data
+   * Send bulk expiry notifications
+   * @param {Object} data - Bulk notification data
    */
-  static async sendSMS(data) {
-    const { to, message } = data;
-    jobLogger.info(`Sending SMS to ${to}`);
+  static async sendBulkExpiryNotifications(data) {
+    const { expiredBookings } = data;
+    jobLogger.info(`Sending bulk expiry notifications for ${expiredBookings} bookings`);
     
-    // TODO: Implement SMS service integration
-    // For now, just log the SMS would be sent
-    jobLogger.info(`SMS service not yet implemented - would send: ${message} to ${to}`);
-    return { sent: true, message: 'SMS service not implemented' };
+    // TODO: Implement bulk notification logic
+    return { sent: expiredBookings };
   }
 
   /**
@@ -465,8 +485,7 @@ export class BackgroundJobsService {
     jobLogger.info(`Logging booking change: ${action} for booking ${bookingId}`);
     
     // Delegate to AuditService
-    const { AuditService } = await import('./auditService.js');
-    return await AuditService.logBookingChange(bookingId, action, userId, changes);
+    return await AuditService.logBookingChange(data);
   }
 
   /**
@@ -478,7 +497,6 @@ export class BackgroundJobsService {
     jobLogger.info(`Logging system event: ${event}`);
     
     // Delegate to AuditService
-    const { AuditService } = await import('./auditService.js');
-    return await AuditService.logSystemEvent(event, severity, details, userId);
+    return await AuditService.logSystemEvent(data);
   }
 }

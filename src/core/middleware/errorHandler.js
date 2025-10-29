@@ -35,7 +35,19 @@ export const errorHandler = (err, req, res, next) => {
   }
 
   const code = err.status || err.statusCode || 500;
-  const message = err.message || "Internal Server Error";
+  let message;
+
+  if (process.env.NODE_ENV === 'development') {
+    message = err.message || "Internal Server Error";
+  } else {
+    // In production, sanitize sensitive error details
+    if (code >= 500) {
+      message = "Internal Server Error";
+    } else {
+      // For client errors, allow a sanitized message if it's short and safe
+      message = err.message && err.message.length < 100 ? err.message : "Bad Request";
+    }
+  }
 
   res.status(code).json({
     success: false,

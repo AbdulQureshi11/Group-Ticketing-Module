@@ -1,19 +1,15 @@
 // PNR sync worker placeholder
-// Assuming a pnrQueue exists, or create one
-import Queue from 'bull';
-
-const pnrQueue = new Queue('pnrSync', {
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: process.env.REDIS_PORT || 6379,
-    password: process.env.REDIS_PASSWORD,
-  },
-});
+import { pnrQueue } from '../queue.js';
+import logger from '../../core/utils/logger.js';
 
 pnrQueue.process(async (job) => {
-  // Process PNR sync job
-  console.log('Processing PNR sync job:', job.data);
-  // Add PNR sync logic here
+  try {
+    logger.info(`Processing PNR sync job ${job.id}`, { jobData: job.data });
+    // Add PNR sync logic here
+  } catch (error) {
+    logger.error(`PNR sync job ${job.id} failed`, { error: error.message, jobData: job.data });
+    throw error;
+  }
 });
 
 export default pnrQueue;

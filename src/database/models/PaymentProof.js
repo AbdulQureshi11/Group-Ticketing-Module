@@ -11,7 +11,13 @@ const PaymentProof = sequelize.define('PaymentProof', {
   bookingId: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'booking_id'
+    field: 'booking_id',
+    references: {
+      model: 'bookings',
+      key: 'id'
+    },
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
   },
   fileUrl: {
     type: DataTypes.STRING(255),
@@ -39,7 +45,13 @@ const PaymentProof = sequelize.define('PaymentProof', {
   uploadedByUserId: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'uploaded_by_user_id'
+    field: 'uploaded_by_user_id',
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE'
   },
   uploadedAt: {
     type: DataTypes.DATE,

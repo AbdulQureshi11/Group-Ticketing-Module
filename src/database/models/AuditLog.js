@@ -11,12 +11,24 @@ const AuditLog = sequelize.define('AuditLog', {
   actorUserId: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'actor_user_id'
+    field: 'actor_user_id',
+    references: {
+      model: 'Users',
+      key: 'id'
+    },
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE'
   },
   agencyId: {
     type: DataTypes.CHAR(36),
     allowNull: false,
-    field: 'agency_id'
+    field: 'agency_id',
+    references: {
+      model: 'Agencies',
+      key: 'id'
+    },
+    onDelete: 'RESTRICT',
+    onUpdate: 'CASCADE'
   },
   entityType: {
     type: DataTypes.ENUM('FLIGHT_GROUP', 'BOOKING', 'PASSENGER', 'USER', 'AGENCY', 'SETTING'),

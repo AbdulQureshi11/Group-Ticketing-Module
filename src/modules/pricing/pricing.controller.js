@@ -50,6 +50,14 @@ export const calculateBookingPricing = async (req, res) => {
         message: 'Passenger counts must be numbers'
       });
     }
+    
+    // Validate passenger counts are non-negative
+    if (adults < 0 || children < 0 || infants < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passenger counts must be non-negative numbers'
+      });
+    }
 
     const pricing = await PricingService.calculateBookingPricing(flightGroupId, passengers);
 
@@ -97,6 +105,31 @@ export const checkSeatAvailability = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'flightGroupId and passengers are required'
+      });
+    }
+    
+    // Validate passengers structure
+    if (typeof passengers !== 'object' || passengers === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'passengers must be an object'
+      });
+    }
+    
+    const { adults, children, infants } = passengers;
+    if (typeof adults !== 'number' || typeof children !== 'number' || typeof infants !== 'number') {
+      return res.status(400).json({
+        success: false,
+        message: 'Passenger counts must be numbers'
+      });
+    }
+    
+    // Validate passenger counts are non-negative integers
+    if (!Number.isInteger(adults) || !Number.isInteger(children) || !Number.isInteger(infants) ||
+        adults < 0 || children < 0 || infants < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Passenger counts must be non-negative integers'
       });
     }
 

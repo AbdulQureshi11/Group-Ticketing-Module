@@ -92,7 +92,7 @@ export class SettingsService {
       // Manager can update these settings
       if (defaultHoldHours !== undefined) {
         // Validate hold hours range (1-72 hours)
-        const holdHours = parseInt(defaultHoldHours);
+        const holdHours = parseInt(defaultHoldHours, 10);
         if (isNaN(holdHours) || holdHours < 1 || holdHours > 72) {
           throw new Error('defaultHoldHours must be between 1 and 72 hours');
         }
