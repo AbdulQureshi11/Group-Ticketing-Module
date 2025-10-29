@@ -4,9 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon --watch src --exec node src/server.js",
-    "test": "node --loader tsx/esm --test tests/unit/health.test.js",
-    "test:simple": "node --test tests/unit/health.test.js"
+    "dev": "nodemon --watch src --exec node src/server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -31,33 +29,6 @@
     "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.28.5",
-    "@babel/preset-env": "^7.28.5",
-    "babel-jest": "^30.2.0",
-    "cross-env": "^10.1.0",
-    "jest": "^30.2.0",
-    "nodemon": "^2.0.22",
-    "supertest": "^7.1.4",
-    "tsx": "^4.7.0"
-  },
-  "jest": {
-    "testEnvironment": "node",
-    "testMatch": [
-      "**/tests/**/*.test.js"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.js",
-      "!src/server.js",
-      "!src/app.js",
-      "!src/database/index.js",
-      "!src/jobs/**/*.js",
-      "!**/node_modules/**"
-    ],
-    "setupFilesAfterEnv": [
-      "<rootDir>/tests/setup.js"
-    ],
-    "transform": {
-      "^.+\\.js$": "babel-jest"
-    }
+    "nodemon": "^2.0.22"
   }
 }

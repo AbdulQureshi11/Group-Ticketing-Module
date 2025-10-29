@@ -25,15 +25,6 @@ node src/server.js
 - **Comprehensive API** - 53 endpoints covering all operations
 - **Production-Ready** - Security headers, rate limiting, audit logging
 
-## 🧪 Testing
-
-```bash
-# Run endpoint tests
-./test-api-endpoints.sh
-
-# Current Status: 96% (30/31 endpoints passing)
-```
-
 ## 🔧 Prerequisites
 
 - **Node.js** 20.19.5+

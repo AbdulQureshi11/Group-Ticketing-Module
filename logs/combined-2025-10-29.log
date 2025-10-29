@@ -1,0 +1,7 @@
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"User not found","service":"flight-group-api","timestamp":"2025-10-29T06:10:24.183Z","username":"admin"}
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"User not found","service":"flight-group-api","timestamp":"2025-10-29T06:18:45.279Z","username":"admin"}
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"User not found","service":"flight-group-api","timestamp":"2025-10-29T06:19:00.094Z","username":"admin"}
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"User not found","service":"flight-group-api","timestamp":"2025-10-29T06:19:22.094Z","username":"admin"}
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"User not found","service":"flight-group-api","timestamp":"2025-10-29T06:20:40.725Z","username":"admin"}
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"User not found","service":"flight-group-api","timestamp":"2025-10-29T06:24:30.086Z","username":"admin"}
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"Invalid password","service":"flight-group-api","timestamp":"2025-10-29T08:49:24.660Z","username":"admin"}

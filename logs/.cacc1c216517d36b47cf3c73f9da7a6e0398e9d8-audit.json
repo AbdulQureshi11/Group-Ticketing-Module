@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/home/muhammad/Group-Ticketing-Module/logs/.cacc1c216517d36b47cf3c73f9da7a6e0398e9d8-audit.json",
+    "files": [
+        {
+            "date": 1761716685252,
+            "name": "/home/muhammad/Group-Ticketing-Module/logs/combined-2025-10-29.log",
+            "hash": "a34a12f8ee7593c6b26d18381e266312ef18c3d7ea1f32627605e4fba8672378"
+        }
+    ],
+    "hashType": "sha256"
+}

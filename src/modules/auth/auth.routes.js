@@ -38,10 +38,25 @@ const loginValidation = [
     .withMessage("Username can only contain letters, numbers, and underscores"),
   
   body("password")
+    .trim()
     .notEmpty()
     .withMessage("Password is required")
-    .isLength({ min: 6 })
-    .withMessage("Password must be at least 6 characters long")
+    .isLength({ min: 10, max: 128 })
+    .withMessage("Password must be between 10 and 128 characters")
+    .matches(/[0-9]/, 'g')
+    .withMessage('Password must contain at least one number')
+    .matches(/[A-Z]/, 'g')
+    .withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/, 'g')
+    .withMessage('Password must contain at least one lowercase letter')
+    .matches(/[^A-Za-z0-9]/, 'g')
+    .withMessage('Password must contain at least one special character')
+    .not()
+    .matches(/^$|\s+/, 'g')
+    .withMessage('Password cannot contain whitespace')
+    .not()
+    .matches(/^(password|12345678|qwerty|abc123)$/i)
+    .withMessage('Password is too common or easily guessable')
 ];
 
 // Middleware to handle validation errors
