@@ -2,39 +2,108 @@ import express from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import cors from 'cors'
+import expressRateLimit from 'express-rate-limit'
+import dotenv from 'dotenv'
+import { sequelize } from './src/config/database.js'
+import { User, Agency } from './src/database/index.js'
+
+dotenv.config()
 
 const app = express()
 const port = 9000
 
-const JWT_SECRET = 'your-secret-key' // Change this to a secure key
+const JWT_SECRET = process.env.JWT_SECRET || (
+  process.env.NODE_ENV === 'production'
+    ? (() => { throw new Error('JWT_SECRET environment variable is required in production'); })()
+    : 'dev-jwt-secret-key-change-in-production'
+);
 
-// Sample user data
-const users = [
-  {
-    username: 'admin',
-    password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi' // Hashed 'password'
-  }
-]
+// Rate limiter for login endpoint
+const loginLimiter = expressRateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts, please try again later' }
+});
 
-app.use(cors())
+// Initialize database
+sequelize.authenticate().then(() => {
+  console.log('✅ Database connected in index.js')
+}).catch(err => {
+  console.error('❌ Database connection failed:', err)
+  process.exit(1)
+})
+
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || 'http://localhost:3000',
+  credentials: true
+}))
 app.use(express.json())
 
 app.get('/', (req, res) => {
   res.send('Hello World!')
 })
 
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body
-  const user = users.find(u => u.username === username)
-  if (!user) {
-    return res.status(401).json({ message: 'Invalid credentials' })
+app.post('/login', loginLimiter, async (req, res) => {
+  // Guard against null/undefined req.body
+  if (!req.body || typeof req.body !== 'object') {
+    return res.status(400).json({ message: 'Request body is required' })
   }
-  const isValid = await bcrypt.compare(password, user.password)
-  if (!isValid) {
-    return res.status(401).json({ message: 'Invalid credentials' })
+
+  const { agencyCode, username, password } = req.body
+
+  // Validate agencyCode
+  if (!agencyCode || typeof agencyCode !== 'string') {
+    return res.status(400).json({ message: 'agencyCode is required and must be a string' })
   }
-  const token = jwt.sign({ username: user.username }, JWT_SECRET, { expiresIn: '1h' })
-  res.json({ token })
+  const trimmedAgencyCode = agencyCode.trim()
+  if (!trimmedAgencyCode) {
+    return res.status(400).json({ message: 'agencyCode cannot be empty' })
+  }
+
+  // Validate username
+  if (!username || typeof username !== 'string') {
+    return res.status(400).json({ message: 'username is required and must be a string' })
+  }
+  const trimmedUsername = username.trim()
+  if (!trimmedUsername) {
+    return res.status(400).json({ message: 'username cannot be empty' })
+  }
+
+  // Validate password
+  if (!password || password.length === 0) {
+    return res.status(400).json({ message: 'password cannot be empty' })
+  }
+
+  try {
+    const user = await User.findOne({
+      where: {
+        username: trimmedUsername,
+        isActive: true
+      },
+      include: [{
+        model: Agency,
+        as: 'agency',
+        where: {
+          code: trimmedAgencyCode,
+          status: 'ACTIVE'
+        }
+      }]
+    })
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' })
+    }
+    const isValid = await bcrypt.compare(password, user.passwordHash)
+    if (!isValid) {
+      return res.status(401).json({ message: 'Invalid credentials' })
+    }
+    const token = jwt.sign({ username: user.username, role: user.role, agencyId: user.agencyId }, JWT_SECRET, { expiresIn: '1h' })
+    res.json({ token })
+  } catch (error) {
+    console.error('Login error:', error)
+    res.status(500).json({ message: 'Internal server error' })
+  }
 })
 
 app.listen(port, () => {
