@@ -45,6 +45,7 @@ const GroupAgencyAllocation = sequelize.define('GroupAgencyAllocation', {
     field: 'reserved_seats'
   }
 }, {
+  tableName: 'group_agency_allocations',
   timestamps: true,
   indexes: [
     {

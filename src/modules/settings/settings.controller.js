@@ -1,5 +1,5 @@
 import { SettingsService } from './settings.service.js';
-import { AuditService } from '../../services/auditService.js';
+import { AuditService } from '../../services/audit.service.js';
 
 /**
  * GET /settings/agency

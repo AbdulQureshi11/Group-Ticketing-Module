@@ -47,6 +47,7 @@ const User = sequelize.define('User', {
     field: 'last_login_at'
   }
 }, {
+  tableName: 'users',
   timestamps: true,
   indexes: [
     {

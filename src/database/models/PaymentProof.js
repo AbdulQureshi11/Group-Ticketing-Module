@@ -13,7 +13,7 @@ const PaymentProof = sequelize.define('PaymentProof', {
     allowNull: false,
     field: 'booking_id',
     references: {
-      model: 'bookings',
+      model: 'booking_requests',
       key: 'id'
     },
     onDelete: 'CASCADE',
@@ -47,7 +47,7 @@ const PaymentProof = sequelize.define('PaymentProof', {
     allowNull: false,
     field: 'uploaded_by_user_id',
     references: {
-      model: 'Users',
+      model: 'users',
       key: 'id'
     },
     onDelete: 'RESTRICT',
@@ -60,6 +60,7 @@ const PaymentProof = sequelize.define('PaymentProof', {
     field: 'uploaded_at'
   }
 }, {
+  tableName: 'payment_proofs',
   timestamps: false,
   indexes: [
     {

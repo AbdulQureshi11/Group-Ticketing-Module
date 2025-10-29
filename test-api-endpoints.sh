@@ -11,7 +11,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-API_BASE="http://localhost:3000/api"
+API_BASE="http://localhost:3000"
 ADMIN_TOKEN=""
 MANAGER_TOKEN=""
 AGENT_TOKEN=""

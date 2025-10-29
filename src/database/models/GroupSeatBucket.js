@@ -81,6 +81,7 @@ const GroupSeatBucket = sequelize.define('GroupSeatBucket', {
     }
   }
 }, {
+  tableName: 'group_seat_buckets',
   timestamps: true,
   validate: {
     checkSeatAllocation() {

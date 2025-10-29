@@ -1,5 +1,5 @@
 import { verifyToken } from '../utils/jwt.js';
-import { AgencySettings, FlightGroup, BookingRequest, BookingPassenger } from '../models/index.js';
+import { AgencySettings, FlightGroup, BookingRequest, BookingPassenger } from '../../database/index.js';
 
 /**
  * Middleware to authenticate JWT tokens
