@@ -1,11 +1,11 @@
 # Testing Guide: Group Ticketing Module
 
-This guide provides comprehensive instructions for testing all PRD requirements using terminal tools.
+This guide provides instructions for manual testing and structure validation of PRD requirements using terminal tools.
 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
 2. [Quick Start](#quick-start)
-3. [Automated Testing](#automated-testing)
+3. [Structure Validation](#structure-validation)
 4. [Manual Testing](#manual-testing)
 5. [Database Testing](#database-testing)
 6. [Performance Testing](#performance-testing)
@@ -54,57 +54,32 @@ redis-server
 
 ## Quick Start
 
-### Run All Tests
+### Run Structure Validation and API Tests
 ```bash
 # Make scripts executable
 chmod +x test-requirements.sh test-api-endpoints.sh
 
-# Run structure tests
+# Run structure validation
 ./test-requirements.sh
 
 # Start the server (in another terminal)
 npm start
 
-# Run API tests
+# Run API endpoint tests
 ./test-api-endpoints.sh
 ```
 
 ---
 
-## Automated Testing
+## Structure Validation
 
-### 1. Unit Tests
+### Run Structure Tests
 ```bash
-# Run all unit tests
-npm test
-
-# Run specific test file
-npm test tests/unit/pnrManagement.test.js
-
-# Run with coverage
-npm test -- --coverage
-
-# Watch mode
-npm test -- --watch
+# Run structure validation script
+./test-requirements.sh
 ```
 
-### 2. Integration Tests
-```bash
-# Run integration tests
-npm test tests/integration/
-
-# Run specific integration test
-npm test tests/integration/bookings.test.js
-```
-
-### 3. Test Output Analysis
-```bash
-# Generate test report
-npm test -- --json --outputFile=test-results.json
-
-# View coverage report
-open coverage/lcov-report/index.html
-```
+This script checks that all required files, dependencies, and configurations are in place according to the PRD requirements.
 
 ---
 
@@ -516,198 +491,6 @@ curl -X POST http://localhost:3000/api/bookings \
     "passengers": {"adults": -1, "children": 0, "infants": 0}
   }'
 ```
-
----
-
-## Background Jobs Testing
-
-### 1. Test Hold Expiry Worker
-
-```bash
-# Check Redis connection
-redis-cli ping
-
-# Monitor background jobs
-redis-cli MONITOR
-
-# Check job queues
-redis-cli KEYS "bull:*"
-
-# Check specific queue
-redis-cli LRANGE "bull:status-transitions:wait" 0 -1
-
-# Manually trigger hold expiry check
-curl -X POST http://localhost:3000/api/background-jobs/process-expired-holds \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### 2. Test Notifications
-
-```bash
-# Check notification queue
-redis-cli LRANGE "bull:notifications:wait" 0 -1
-
-# Test email notification
-curl -X POST http://localhost:3000/api/background-jobs/test-notification \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "email",
-    "to": "test@example.com",
-    "subject": "Test Email",
-    "template": "booking-confirmation"
-  }'
-```
-
----
-
-## Monitoring & Logs
-
-### 1. Check Application Logs
-
-```bash
-# View all logs
-tail -f logs/*.log
-
-# View specific log
-tail -f logs/app.log
-tail -f logs/error.log
-tail -f logs/audit.log
-
-# Search for errors
-grep "ERROR" logs/*.log
-
-# Search for specific booking
-grep "booking-id-here" logs/*.log
-```
-
-### 2. Monitor Database
-
-```bash
-# Check active connections
-mysql -u root -p -e "SHOW PROCESSLIST;"
-
-# Check slow queries
-mysql -u root -p -e "SHOW FULL PROCESSLIST;"
-
-# Enable slow query log
-mysql -u root -p -e "SET GLOBAL slow_query_log = 'ON';"
-mysql -u root -p -e "SET GLOBAL long_query_time = 2;"
-```
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Failed**
-   ```bash
-   # Check MySQL is running
-   systemctl status mysql
-   
-   # Test connection
-   mysql -u root -p -e "SELECT 1;"
-   ```
-
-2. **Redis Connection Failed**
-   ```bash
-   # Check Redis is running
-   redis-cli ping
-   
-   # Restart Redis
-   sudo systemctl restart redis
-   ```
-
-3. **Port Already in Use**
-   ```bash
-   # Find process using port 3000
-   lsof -i :3000
-   
-   # Kill process
-   kill -9 <PID>
-   ```
-
-4. **JWT Token Issues**
-   ```bash
-   # Decode JWT token
-   echo $TOKEN | cut -d'.' -f2 | base64 -d | jq
-   ```
-
----
-
-## Continuous Integration
-
-### GitHub Actions Example
-
-```yaml
-# .github/workflows/test.yml
-name: Test Suite
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: flight_group_db_test
-        ports:
-          - 3306:3306
-      
-      redis:
-        image: redis:alpine
-        ports:
-          - 6379:6379
-    
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-      
-      - run: npm install
-      - run: npm test
-      - run: ./test-requirements.sh
-```
-
----
-
-## Summary Checklist
-
-- [ ] All dependencies installed
-- [ ] Database created and migrated
-- [ ] Redis running
-- [ ] Environment variables configured
-- [ ] Unit tests passing
-- [ ] Integration tests passing
-- [ ] All API endpoints responding
-- [ ] Authentication working
-- [ ] Authorization enforced
-- [ ] Rate limiting active
-- [ ] Input validation working
-- [ ] Background jobs processing
-- [ ] Notifications sending
-- [ ] Audit logs recording
-- [ ] No security vulnerabilities
-- [ ] Performance acceptable
-
----
-
-## Next Steps
-
-1. Run automated tests: `./test-requirements.sh`
-2. Start server: `npm start`
-3. Run API tests: `./test-api-endpoints.sh`
-4. Review test results
-5. Fix any failing tests
-6. Document any issues found
-7. Deploy to staging environment
-8. Perform user acceptance testing
 
 ---
 

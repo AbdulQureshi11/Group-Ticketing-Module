@@ -17,12 +17,21 @@ export class PNRManagementService {
    * Generate unique PNR
    * @returns {string} 6-character alphanumeric PNR
    */
+  /**
+   * Generate a cryptographically secure PNR
+   * @returns {string} 6-character alphanumeric PNR
+   */
   static generatePNR() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const randomValues = crypto.randomBytes(6); // Get 6 secure random bytes
     let pnr = '';
+    
     for (let i = 0; i < 6; i++) {
-      pnr += chars.charAt(Math.floor(Math.random() * chars.length));
+      // Use modulo to get a value within the chars length
+      const randomIndex = randomValues[i] % chars.length;
+      pnr += chars.charAt(randomIndex);
     }
+    
     return pnr;
   }
 
