@@ -13,7 +13,7 @@ const AuditLog = sequelize.define('AuditLog', {
     allowNull: false,
     field: 'actor_user_id',
     references: {
-      model: 'Users',
+      model: 'users',
       key: 'id'
     },
     onDelete: 'RESTRICT',
@@ -24,7 +24,7 @@ const AuditLog = sequelize.define('AuditLog', {
     allowNull: false,
     field: 'agency_id',
     references: {
-      model: 'Agencies',
+      model: 'agencies',
       key: 'id'
     },
     onDelete: 'RESTRICT',
@@ -61,6 +61,7 @@ const AuditLog = sequelize.define('AuditLog', {
     field: 'occurred_at'
   }
 }, {
+  tableName: 'audit_logs',
   timestamps: false,
   indexes: [
     {

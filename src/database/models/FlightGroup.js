@@ -13,7 +13,7 @@ const FlightGroup = sequelize.define('FlightGroup', {
     allowNull: false,
     field: 'agency_id',
     references: {
-      model: 'Agencies',
+      model: 'agencies',
       key: 'id'
     },
     onUpdate: 'CASCADE',
@@ -97,13 +97,14 @@ const FlightGroup = sequelize.define('FlightGroup', {
     allowNull: false,
     field: 'created_by',
     references: {
-      model: 'Users',
+      model: 'users',
       key: 'id'
     },
     onUpdate: 'CASCADE',
     onDelete: 'RESTRICT'
   }
 }, {
+  tableName: 'flight_groups',
   timestamps: true,
   validate: {
     departureBeforeArrival() {

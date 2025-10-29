@@ -1,5 +1,18 @@
 import { sequelize } from '../../config/database.js';
-import { User, Agency, Group, Booking, Passenger, AgencySettings, Allocation } from '../index.js';
+import { 
+  User, 
+  Agency, 
+  AgencySettings, 
+  FlightGroup, 
+  GroupSeatBucket,
+  GroupAgencyAllocation,
+  BookingRequest, 
+  BookingPassenger,
+  PaymentProof,
+  AuditLog,
+  Attachment,
+  RefreshToken
+} from '../index.js';
 
 /**
  * Database Migration Script
@@ -22,17 +35,32 @@ const migrateDatabase = async () => {
     await User.sync();
     console.log('✅ Users table created');
 
-    await Group.sync();
-    console.log('✅ Groups table created');
+    await RefreshToken.sync();
+    console.log('✅ Refresh Tokens table created');
 
-    await Allocation.sync();
-    console.log('✅ Allocations table created');
+    await FlightGroup.sync();
+    console.log('✅ Flight Groups table created');
 
-    await Booking.sync();
-    console.log('✅ Bookings table created');
+    await GroupSeatBucket.sync();
+    console.log('✅ Group Seat Buckets table created');
 
-    await Passenger.sync();
-    console.log('✅ Passengers table created');
+    await GroupAgencyAllocation.sync();
+    console.log('✅ Group Agency Allocations table created');
+
+    await BookingRequest.sync();
+    console.log('✅ Booking Requests table created');
+
+    await BookingPassenger.sync();
+    console.log('✅ Booking Passengers table created');
+
+    await PaymentProof.sync();
+    console.log('✅ Payment Proofs table created');
+
+    await AuditLog.sync();
+    console.log('✅ Audit Logs table created');
+
+    await Attachment.sync();
+    console.log('✅ Attachments table created');
 
     // Seed initial data
     console.log('🌱 Seeding initial data...');
@@ -54,7 +82,7 @@ const migrateDatabase = async () => {
         address: '123 Main Street, Karachi, Pakistan',
         city: 'Karachi',
         country: 'Pakistan',
-        isActive: true
+        status: 'ACTIVE'
       },
       {
         code: 'XYZ456',
@@ -64,16 +92,23 @@ const migrateDatabase = async () => {
         address: '456 Business Avenue, Lahore, Pakistan',
         city: 'Lahore',
         country: 'Pakistan',
-        isActive: true
+        status: 'ACTIVE'
       }
     ];
 
+    const createdAgencies = {};
     for (const agency of agencies) {
       try {
-        await Agency.create(agency);
-        console.log(`✅ Agency ${agency.code} created`);
+        const created = await Agency.create(agency);
+        createdAgencies[agency.code] = created.id;
+        console.log(`✅ Agency ${agency.code} created with ID ${created.id}`);
       } catch (error) {
         console.log(`⚠️ Agency ${agency.code} might already exist:`, error.message);
+        // Try to find existing agency
+        const existing = await Agency.findOne({ where: { code: agency.code } });
+        if (existing) {
+          createdAgencies[agency.code] = existing.id;
+        }
       }
     }
     console.log('✅ Agencies seeding completed');
@@ -93,33 +128,30 @@ const migrateDatabase = async () => {
     const users = [
       {
         username: 'admin',
-        password: await bcrypt.hash(adminPassword, 10),
-        role: 'Admin',
-        agencyCode: 'ABC123',
-        name: 'System Admin',
+        passwordHash: await bcrypt.hash(adminPassword, 10),
+        role: 'ADMIN',
+        agencyId: createdAgencies['ABC123'],
         email: 'admin@abc-travel.com',
         phone: '+92-21-1234567',
-        isActive: true
+        isActive: 1
       },
       {
         username: 'manager',
-        password: await bcrypt.hash(managerPassword, 10),
-        role: 'Manager',
-        agencyCode: 'ABC123',
-        name: 'Branch Manager',
+        passwordHash: await bcrypt.hash(managerPassword, 10),
+        role: 'MANAGER',
+        agencyId: createdAgencies['ABC123'],
         email: 'manager@abc-travel.com',
         phone: '+92-21-7654321',
-        isActive: true
+        isActive: 1
       },
       {
         username: 'agent',
-        password: await bcrypt.hash(agentPassword, 10),
-        role: 'Agent',
-        agencyCode: 'XYZ456',
-        name: 'Travel Agent',
+        passwordHash: await bcrypt.hash(agentPassword, 10),
+        role: 'SUB_AGENT',
+        agencyId: createdAgencies['XYZ456'],
         email: 'agent@xyz-tours.com',
         phone: '+92-42-1234567',
-        isActive: true
+        isActive: 1
       }
     ];
 
@@ -207,13 +239,13 @@ const migrateDatabase = async () => {
     }
     console.log('✅ Agency Settings seeding completed');
 
-    // Seed Groups
-    const groups = [
+    // Seed Flight Groups
+    const flightGroups = [
       {
-        agencyCode: 'ABC123',
-        flight: 'PK305',
+        agencyId: createdAgencies['ABC123'],
+        flightNumber: 'PK305',
         route: 'LHE-KHI',
-        status: 'open',
+        status: 'OPEN',
         totalSeats: 50,
         availableSeats: 45,
         allocatedSeats: 5,
@@ -224,10 +256,10 @@ const migrateDatabase = async () => {
         currency: 'PKR'
       },
       {
-        agencyCode: 'ABC123',
-        flight: 'PK306',
+        agencyId: createdAgencies['ABC123'],
+        flightNumber: 'PK306',
         route: 'KHI-LHE',
-        status: 'open',
+        status: 'OPEN',
         totalSeats: 50,
         availableSeats: 50,
         allocatedSeats: 0,
@@ -238,10 +270,10 @@ const migrateDatabase = async () => {
         currency: 'PKR'
       },
       {
-        agencyCode: 'XYZ456',
-        flight: 'PK201',
+        agencyId: createdAgencies['XYZ456'],
+        flightNumber: 'PK201',
         route: 'LHE-ISB',
-        status: 'draft',
+        status: 'DRAFT',
         totalSeats: 30,
         availableSeats: 30,
         allocatedSeats: 0,
@@ -253,22 +285,22 @@ const migrateDatabase = async () => {
       }
     ];
 
-    for (const group of groups) {
+    for (const group of flightGroups) {
       try {
-        await Group.create(group);
-        console.log(`✅ Group ${group.flight} ${group.route} created`);
+        await FlightGroup.create(group);
+        console.log(`✅ Flight Group ${group.flightNumber} ${group.route} created`);
       } catch (error) {
-        console.log(`⚠️ Group ${group.flight} ${group.route} might already exist:`, error.message);
+        console.log(`⚠️ Flight Group ${group.flightNumber} ${group.route} might already exist:`, error.message);
       }
     }
-    console.log('✅ Groups seeding completed');
+    console.log('✅ Flight Groups seeding completed');
 
     console.log('🎉 Database migration completed successfully!');
     console.log('📊 Summary:');
     console.log(`   - Agencies: ${agencies.length}`);
     console.log(`   - Users: ${users.length}`);
     console.log(`   - Agency Settings: ${settings.length}`);
-    console.log(`   - Groups: ${groups.length}`);
+    console.log(`   - Flight Groups: ${flightGroups.length}`);
 
   } catch (error) {
     console.error('❌ Database migration failed:', error);

@@ -39,6 +39,7 @@ const Attachment = sequelize.define('Attachment', {
     allowNull: true
   }
 }, {
+  tableName: 'attachments',
   timestamps: false,
   indexes: [
     {

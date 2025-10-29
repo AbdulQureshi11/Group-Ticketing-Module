@@ -54,6 +54,7 @@ const AgencySettings = sequelize.define('AgencySettings', {
     field: 'notify_phone'
   }
 }, {
+  tableName: 'agency_settings',
   timestamps: true
 });
 

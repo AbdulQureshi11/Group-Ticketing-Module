@@ -90,6 +90,7 @@ const BookingRequest = sequelize.define('BookingRequest', {
     allowNull: true
   }
 }, {
+  tableName: 'booking_requests',
   timestamps: true,
   indexes: [
     {

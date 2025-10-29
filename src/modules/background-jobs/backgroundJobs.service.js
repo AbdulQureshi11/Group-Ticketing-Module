@@ -1,5 +1,5 @@
 import { Queue, Worker } from 'bullmq';
-import redis from '../../config/redis.js';
+import redis, { bullMQRedisConfig } from '../../config/redis.js';
 import { StatusMachineService } from '../status-machine/statusMachine.service.js';
 import { SeatManagementService } from '../seat-management/seatManagement.service.js';
 import AuditLog from '../../database/models/AuditLog.js';
@@ -21,11 +21,11 @@ const jobLogger = winston.createLogger({
 
 // Background job queues
 export const jobQueues = {
-  statusTransitions: new Queue('status-transitions', { connection: redis }),
-  seatExpiry: new Queue('seat-expiry', { connection: redis }),
-  notifications: new Queue('notifications', { connection: redis }),
-  auditLogging: new Queue('audit-logging', { connection: redis }),
-  reportGeneration: new Queue('report-generation', { connection: redis })
+  statusTransitions: new Queue('status-transitions', { connection: bullMQRedisConfig }),
+  seatExpiry: new Queue('seat-expiry', { connection: bullMQRedisConfig }),
+  notifications: new Queue('notifications', { connection: bullMQRedisConfig }),
+  auditLogging: new Queue('audit-logging', { connection: bullMQRedisConfig }),
+  reportGeneration: new Queue('report-generation', { connection: bullMQRedisConfig })
 };
 
 /**
@@ -66,7 +66,7 @@ export class BackgroundJobsService {
         throw error;
       }
     }, { 
-      connection: redis,
+      connection: bullMQRedisConfig,
       concurrency: 5,
       limiter: {
         max: 100,
@@ -100,7 +100,7 @@ export class BackgroundJobsService {
         throw error;
       }
     }, { 
-      connection: redis,
+      connection: bullMQRedisConfig,
       concurrency: 3
     });
 
@@ -136,7 +136,7 @@ export class BackgroundJobsService {
         throw error;
       }
     }, { 
-      connection: redis,
+      connection: bullMQRedisConfig,
       concurrency: 10,
       limiter: {
         max: 200,
@@ -173,7 +173,7 @@ export class BackgroundJobsService {
         throw error;
       }
     }, { 
-      connection: redis,
+      connection: bullMQRedisConfig,
       concurrency: 20
     });
 

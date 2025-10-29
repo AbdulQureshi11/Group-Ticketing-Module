@@ -60,6 +60,7 @@ const BookingPassenger = sequelize.define('BookingPassenger', {
     field: 'ticket_no'
   }
 }, {
+  tableName: 'booking_passengers',
   timestamps: true,
   indexes: [
     {

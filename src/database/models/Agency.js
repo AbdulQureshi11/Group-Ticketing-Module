@@ -22,7 +22,7 @@ const Agency = sequelize.define('Agency', {
     allowNull: true,
     field: 'parent_agency_id',
     references: {
-      model: 'Agency',
+      model: 'agencies',
       key: 'id'
     },
     onDelete: 'SET NULL',
@@ -56,6 +56,7 @@ const Agency = sequelize.define('Agency', {
     allowNull: true
   }
 }, {
+  tableName: 'agencies',
   timestamps: true,
   indexes: [
     {
