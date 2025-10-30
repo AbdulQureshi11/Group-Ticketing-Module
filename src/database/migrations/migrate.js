@@ -116,9 +116,9 @@ const migrateDatabase = async () => {
     // Seed Users
     // Use environment variables for passwords, fallback to development defaults
     const bcrypt = (await import('bcryptjs')).default;
-    const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'password123';
-    const managerPassword = process.env.SEED_MANAGER_PASSWORD || 'password123';
-    const agentPassword = process.env.SEED_AGENT_PASSWORD || 'password123';
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Password@123$';
+    const managerPassword = process.env.SEED_MANAGER_PASSWORD || 'Manager@123$';
+    const agentPassword = process.env.SEED_AGENT_PASSWORD || 'Agent@123$';
     
     // Warn if using default passwords
     if (!process.env.SEED_ADMIN_PASSWORD || !process.env.SEED_MANAGER_PASSWORD || !process.env.SEED_AGENT_PASSWORD) {

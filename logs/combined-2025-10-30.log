@@ -1,0 +1,1 @@
+{"ip":"::1","level":"warn","message":"Failed login attempt","reason":"Invalid password","service":"flight-group-api","timestamp":"2025-10-30T04:59:20.185Z","username":"admin"}

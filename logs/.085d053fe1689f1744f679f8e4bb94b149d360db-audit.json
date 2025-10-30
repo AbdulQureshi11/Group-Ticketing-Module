@@ -9,6 +9,11 @@
             "date": 1761716685242,
             "name": "/home/muhammad/Group-Ticketing-Module/logs/error-2025-10-29.log",
             "hash": "543b5d54a303afae6739778ef00cdc79432dc486df672338673a6e27af7a320a"
+        },
+        {
+            "date": 1761799812539,
+            "name": "/home/muhammad/Group-Ticketing-Module/logs/error-2025-10-30.log",
+            "hash": "cd6e184561e1cf522ed142e5bc9d79a3bb532ee9931f3a364b840dde2e83d13d"
         }
     ],
     "hashType": "sha256"

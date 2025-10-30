@@ -98,7 +98,7 @@ print_header "AUTHENTICATION ENDPOINTS"
 result=$(api_call "POST" "/auth/login" '{
     "agencyCode": "ABC123",
     "username": "admin",
-    "password": "password123"
+    "password": "Password@123$"
 }')
 status=$(echo "$result" | cut -d'|' -f1)
 body=$(echo "$result" | cut -d'|' -f2-)
@@ -148,7 +148,7 @@ print_header "USERS ENDPOINTS"
 # Test create user
 result=$(api_call "POST" "/users" '{
     "username": "testuser",
-    "password": "password123",
+    "password": "Agent@123$",
     "agencyCode": "ABC123",
     "role": "Agent",
     "name": "Test User",

@@ -12,7 +12,7 @@ node src/database/migrations/migrate.js
 node src/server.js
 ```
 
-**Default Login**: `admin` / `password123` (Agency: ABC123)
+**Default Login**: `admin` / `Password@123$` (Agency: ABC123)
 
 📖 **[Complete Setup Guide →](SETUP.md)** | **[API Documentation →](API_REFERENCE.md)**
 

@@ -187,7 +187,7 @@ curl -X POST http://localhost:3000/auth/login \
   -d '{
     "agencyCode": "ABC123",
     "username": "admin",
-    "password": "password123"
+    "password": "Password@123$"
   }'
 ```
 
@@ -216,9 +216,9 @@ After migration, you can login with these users:
 
 | Username | Password | Agency Code | Role | Description |
 |----------|----------|-------------|------|-------------|
-| admin | password123 | ABC123 | ADMIN | Full system access |
-| manager | password123 | ABC123 | MANAGER | Agency management |
-| agent | password123 | XYZ456 | SUB_AGENT | Booking operations |
+| admin | Password@123$ | ABC123 | ADMIN | Full system access |
+| manager | Manager@123$ | ABC123 | MANAGER | Agency management |
+| agent | Agent@123$ | XYZ456 | SUB_AGENT | Booking operations |
 
 ⚠️ **IMPORTANT**: Change these passwords immediately in production!
 

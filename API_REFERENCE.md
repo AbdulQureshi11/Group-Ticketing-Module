@@ -34,7 +34,7 @@ curl -X POST http://localhost:3000/auth/login \
   -d '{
     "agencyCode": "ABC123",
     "username": "admin",
-    "password": "password123"
+    "password": "Password@123$"
   }'
 ```
 
@@ -143,7 +143,7 @@ curl -X POST http://localhost:3000/users \
   -H "Content-Type: application/json" \
   -d '{
     "username": "newagent",
-    "password": "password123",
+    "password": "Agent@123$",
     "role": "SUB_AGENT",
     "email": "agent@example.com",
     "phone": "+92-21-1234567"
@@ -659,7 +659,7 @@ When rate limit is exceeded:
 # Login and save token
 TOKEN=$(curl -s -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"agencyCode":"ABC123","username":"admin","password":"password123"}' \
+  -d '{"agencyCode":"ABC123","username":"admin","password":"Password@123$"}' \
   | jq -r '.data.accessToken')
 
 # Use token in subsequent requests
