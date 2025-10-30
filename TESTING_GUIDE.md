@@ -94,19 +94,24 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{
     "agencyCode": "ABC123",
     "username": "admin",
-    "password": "password123"
+    "password": "Password@123$"
   }'
 
-# Save the token
-export TOKEN="<your-token-here>"
+# Save the tokens (both access and refresh)
+export REFRESH_TOKEN="<your-refresh-token-here>"
+
+export ACCESS_TOKEN="<your-access-token-here>"
 
 # Test refresh token
-curl -X POST http://localhost:3000/api/auth/refresh \
-  -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:3000/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refreshToken": "'$REFRESH_TOKEN'"
+  }'
 
 # Test logout
-curl -X POST http://localhost:3000/api/auth/logout \
-  -H "Authorization: Bearer $TOKEN"
+curl -X POST http://localhost:3000/auth/logout \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 ### 2. Test Group Creation (Requirement 4.2)
@@ -114,7 +119,7 @@ curl -X POST http://localhost:3000/api/auth/logout \
 ```bash
 # Create a flight group
 curl -X POST http://localhost:3000/api/groups \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "carrierCode": "PK",
@@ -152,15 +157,15 @@ curl -X POST http://localhost:3000/api/groups \
 
 # List groups
 curl -X GET "http://localhost:3000/api/groups?status=PUBLISHED" \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
 # Get specific group
 curl -X GET http://localhost:3000/api/groups/<group-id> \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
 # Update group status
 curl -X PATCH http://localhost:3000/api/groups/<group-id> \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"status": "PUBLISHED"}'
 ```
@@ -170,7 +175,7 @@ curl -X PATCH http://localhost:3000/api/groups/<group-id> \
 ```bash
 # Create booking request
 curl -X POST http://localhost:3000/api/bookings \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "flightGroupId": "<group-id>",
@@ -187,11 +192,11 @@ export BOOKING_ID="<booking-id>"
 
 # Approve booking (Manager/Admin)
 curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/approve \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
 # Upload payment proof
 curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/payment-proof \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "fileUrl": "https://example.com/receipt.pdf",
@@ -203,11 +208,11 @@ curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/payment-proof \
 
 # Mark as paid
 curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/mark-paid \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
 # Issue tickets
 curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/issue \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 ### 4. Test PNR Management (Requirement 4.6)
@@ -215,15 +220,15 @@ curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/issue \
 ```bash
 # Validate PNR format
 curl -X GET http://localhost:3000/api/pnr/validate/ABC123 \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
 # Get booking PNR info
 curl -X GET http://localhost:3000/api/pnr/booking/$BOOKING_ID \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
 # Assign PNR to booking
 curl -X POST http://localhost:3000/api/pnr/assign \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "bookingId": "'$BOOKING_ID'",
@@ -236,7 +241,7 @@ curl -X POST http://localhost:3000/api/pnr/assign \
 ```bash
 # Add passengers to booking
 curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/passengers \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "passengers": [
@@ -265,7 +270,7 @@ curl -X POST http://localhost:3000/api/bookings/$BOOKING_ID/passengers \
 
 # Update passenger
 curl -X PATCH http://localhost:3000/api/passengers/<passenger-id> \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "ticketNo": "PK-20251215-123456"
@@ -372,10 +377,10 @@ ab -n 1000 -c 10 -p login.json -T application/json \
   http://localhost:3000/api/auth/login
 
 # Create login.json
-echo '{"agencyCode":"ABC123","username":"admin","password":"password123"}' > login.json
+echo '{"agencyCode":"ABC123","username":"admin","password":"Password@123$"}' > login.json
 
 # Test groups listing
-ab -n 1000 -c 10 -H "Authorization: Bearer $TOKEN" \
+ab -n 1000 -c 10 -H "Authorization: Bearer $ACCESS_TOKEN" \
   http://localhost:3000/api/groups
 ```
 
@@ -385,7 +390,7 @@ ab -n 1000 -c 10 -H "Authorization: Bearer $TOKEN" \
 # Create a script to test race conditions
 for i in {1..10}; do
   curl -X POST http://localhost:3000/api/bookings \
-    -H "Authorization: Bearer $TOKEN" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
       "flightGroupId": "<group-id>",
@@ -427,7 +432,7 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{
     "agencyCode": "XYZ456",
     "username": "agent",
-    "password": "password123"
+    "password": "Agent@123$"
   }'
 
 export AGENT_TOKEN="<agent-token>"
@@ -474,7 +479,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 # Test XSS prevention
 curl -X POST http://localhost:3000/api/bookings \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "flightGroupId": "<group-id>",
@@ -484,7 +489,7 @@ curl -X POST http://localhost:3000/api/bookings \
 
 # Test negative numbers
 curl -X POST http://localhost:3000/api/bookings \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "flightGroupId": "<group-id>",
